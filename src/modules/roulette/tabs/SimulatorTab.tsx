@@ -17,10 +17,11 @@ import InfoTip from '../components/InfoTip';
 import RouletteTable from '../components/RouletteTable';
 import RouletteWheel from '../components/RouletteWheel';
 import { betCoverage, houseEdgeOf, PAYOUT_TABLE, probabilityOf } from '../engine/rouletteMath';
-import { pocketColorOf } from '../engine/wheelOrder';
+import { pocketColorOf, wheelSize } from '../engine/wheelOrder';
 import { isBetCompatible, runInBatches, simulateSingleRun, type RouletteSimConfig, type RouletteSimSummary, type RouletteTrialResult } from '../engine/simulate';
+import { COVERAGE_STRATEGIES, computeCoverageOutcome, coverageNumbers, coverageTotalUnits, getCoverageStrategy } from '../engine/coverageStrategies';
 import { HOUSE_EDGE_DISCLAIMER, RESPONSIBLE_GAMBLING_NOTICE } from '../data/rouletteStrategies';
-import type { BetParams, RouletteBetSelection, RouletteBetType, RouletteStrategy, RouletteVariant } from '../types/roulette';
+import type { BetParams, RouletteBetSelection, RouletteBetType, RouletteCoverageStrategy, RouletteStrategy, RouletteVariant } from '../types/roulette';
 
 const STRATEGY_OPTIONS: { id: RouletteStrategy; label: string }[] = [
   { id: 'flat', label: 'Flat Betting' },
@@ -79,8 +80,10 @@ export default function SimulatorTab() {
   const [startingBankroll, setStartingBankroll] = useState(500);
   const [baseUnit, setBaseUnit] = useState(5);
   const [tableMax, setTableMax] = useState(500);
+  const [betMode, setBetMode] = useState<'single' | 'coverage'>('single');
   const [strategy, setStrategy] = useState<RouletteStrategy>('flat');
   const [betType, setBetType] = useState<RouletteBetType>('red');
+  const [coverageStrategyId, setCoverageStrategyId] = useState<RouletteCoverageStrategy>('two-dozens');
   const [dozenIndex, setDozenIndex] = useState<1 | 2 | 3>(1);
   const [columnIndex, setColumnIndex] = useState<1 | 2 | 3>(1);
   const [straightNumber, setStraightNumber] = useState('17');
@@ -114,27 +117,44 @@ export default function SimulatorTab() {
     return undefined;
   }, [betType, dozenIndex, columnIndex, straightNumber]);
 
+  const availableCoverageStrategies = useMemo(
+    () => COVERAGE_STRATEGIES.filter((c) => c.variant === 'both' || c.variant === variant),
+    [variant],
+  );
+  const coverageDef = useMemo(
+    () => getCoverageStrategy(availableCoverageStrategies.some((c) => c.id === coverageStrategyId) ? coverageStrategyId : availableCoverageStrategies[0].id),
+    [availableCoverageStrategies, coverageStrategyId],
+  );
+  const coverageWagerPerSpin = coverageTotalUnits(coverageDef) * baseUnit;
+
   const errors = useMemo(() => {
     const list: string[] = [];
     if (startingBankroll <= 0) list.push('Starting bankroll must be greater than 0.');
     if (baseUnit <= 0) list.push('Base unit must be greater than 0.');
     if (tableMax <= 0) list.push('Table maximum must be greater than 0.');
-    if (baseUnit > tableMax) list.push('Base unit cannot exceed the table maximum.');
     if (maxSpins < 1 || maxSpins > 100000) list.push('Spins must be between 1 and 100,000.');
     if (useStopLoss && (stopLoss < 0 || stopLoss >= startingBankroll)) list.push('Stop-loss must be below the starting bankroll.');
     if (useStopWin && stopWin <= startingBankroll) list.push('Stop-win must be above the starting bankroll.');
-    if (betType === 'straight' && !betParams) list.push('Enter a valid straight-up number (0-36, or 00 for American).');
-    if (strategy === 'labouchere') {
-      const parsed = labouchereStart.split(',').map((s) => Number(s.trim()));
-      if (parsed.some((n) => !Number.isFinite(n) || n <= 0)) list.push('Labouchère sequence must be positive numbers separated by commas.');
-    }
-    if (variant === 'european' && betType === 'straight' && straightNumber.trim() === '00') {
-      list.push('00 is only available on the American wheel.');
+
+    if (betMode === 'single') {
+      if (baseUnit > tableMax) list.push('Base unit cannot exceed the table maximum.');
+      if (betType === 'straight' && !betParams) list.push('Enter a valid straight-up number (0-36, or 00 for American).');
+      if (strategy === 'labouchere') {
+        const parsed = labouchereStart.split(',').map((s) => Number(s.trim()));
+        if (parsed.some((n) => !Number.isFinite(n) || n <= 0)) list.push('Labouchère sequence must be positive numbers separated by commas.');
+      }
+      if (variant === 'european' && betType === 'straight' && straightNumber.trim() === '00') {
+        list.push('00 is only available on the American wheel.');
+      }
+    } else {
+      if (coverageWagerPerSpin > tableMax) {
+        list.push(`This coverage strategy stakes $${coverageWagerPerSpin.toFixed(0)} per spin across all its legs, which exceeds the table maximum.`);
+      }
     }
     return list;
-  }, [startingBankroll, baseUnit, tableMax, maxSpins, useStopLoss, stopLoss, useStopWin, stopWin, betType, betParams, strategy, labouchereStart, variant, straightNumber]);
+  }, [startingBankroll, baseUnit, tableMax, maxSpins, useStopLoss, stopLoss, useStopWin, stopWin, betMode, betType, betParams, strategy, labouchereStart, variant, straightNumber, coverageWagerPerSpin]);
 
-  const compatible = strategy === 'james-bond' || isBetCompatible(strategy, betType);
+  const compatible = betMode === 'coverage' || strategy === 'james-bond' || isBetCompatible(strategy, betType);
   const canRun = errors.length === 0 && compatible;
 
   function buildConfig(): RouletteSimConfig {
@@ -143,9 +163,11 @@ export default function SimulatorTab() {
       variant,
       startingBankroll,
       baseUnit,
+      betMode,
       strategy,
       betType,
       betParams,
+      coverageStrategyId: coverageDef.id,
       maxSpins,
       stopLoss: useStopLoss ? stopLoss : undefined,
       stopWin: useStopWin ? stopWin : undefined,
@@ -190,10 +212,17 @@ export default function SimulatorTab() {
     ? { type: betType, params: betParams, numbers: betCoverage(betType, betParams) }
     : undefined;
 
-  const theoreticalEdge = houseEdgeOf(betType, betParams, variant);
+  const theoreticalEdge =
+    betMode === 'coverage'
+      ? computeCoverageOutcome(coverageDef, variant, coverageWagerPerSpin).houseEdgePct
+      : houseEdgeOf(betType, betParams, variant);
   const selectionHitProbability = tableSelection ? probabilityOf(betType, betParams, variant) : 0;
   const [selectionWinRatio, selectionStakeRatio] = PAYOUT_TABLE[betType];
   const impliedWin = (baseUnit * selectionWinRatio) / selectionStakeRatio;
+
+  const coverageSelection: RouletteBetSelection | undefined =
+    betMode === 'coverage' ? { type: coverageDef.legs[0].betType, numbers: coverageNumbers(coverageDef) } : undefined;
+  const coverageOutcome = betMode === 'coverage' ? computeCoverageOutcome(coverageDef, variant, coverageWagerPerSpin) : null;
 
   return (
     <div className="tab-content simulator-tab">
@@ -219,62 +248,104 @@ export default function SimulatorTab() {
           </div>
         </div>
 
-        <div className="control-group strategy-select-group">
+        <div className="control-group">
           <span>
-            Strategy
-            <InfoTip text="The staking system to apply across the session. Progression strategies (Martingale, D'Alembert, Fibonacci, Labouchère, Paroli) only make sense on even-money outside bets." />
+            Bet mode
+            <InfoTip text="Single bet: pick one bet type and (optionally) a staking system that changes the wager over time. Number coverage: bet a fixed multi-leg spread — like Two Dozens or Voisins du Zero — the same way every spin." />
           </span>
-          <div className="strategy-options">
-            {STRATEGY_OPTIONS.map((s) => (
-              <button key={s.id} className={`strategy-option ${strategy === s.id ? 'active' : ''}`} onClick={() => setStrategy(s.id)}>
-                <strong>{s.label}</strong>
-              </button>
-            ))}
+          <div className="button-row">
+            <button className={betMode === 'single' ? 'active' : ''} onClick={() => setBetMode('single')}>
+              Single bet + staking system
+            </button>
+            <button className={betMode === 'coverage' ? 'active' : ''} onClick={() => setBetMode('coverage')}>
+              Number coverage strategy
+            </button>
           </div>
         </div>
 
-        {strategy !== 'james-bond' && (
+        {betMode === 'single' && (
+          <>
+            <div className="control-group strategy-select-group">
+              <span>
+                Strategy
+                <InfoTip text="The staking system to apply across the session. Progression strategies (Martingale, D'Alembert, Fibonacci, Labouchère, Paroli) only make sense on even-money outside bets." />
+              </span>
+              <div className="strategy-options">
+                {STRATEGY_OPTIONS.map((s) => (
+                  <button key={s.id} className={`strategy-option ${strategy === s.id ? 'active' : ''}`} onClick={() => setStrategy(s.id)}>
+                    <strong>{s.label}</strong>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {strategy !== 'james-bond' && (
+              <div className="control-group">
+                <span>Bet target</span>
+                <div className="button-row">
+                  {BET_TYPE_OPTIONS.map((b) => (
+                    <button key={b.id} className={betType === b.id ? 'active' : ''} onClick={() => setBetType(b.id)}>
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+                {betType === 'dozen' && (
+                  <div className="button-row">
+                    {[1, 2, 3].map((idx) => (
+                      <button key={idx} className={dozenIndex === idx ? 'active' : ''} onClick={() => setDozenIndex(idx as 1 | 2 | 3)}>
+                        {idx === 1 ? '1st 12' : idx === 2 ? '2nd 12' : '3rd 12'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {betType === 'column' && (
+                  <div className="button-row">
+                    {[1, 2, 3].map((idx) => (
+                      <button key={idx} className={columnIndex === idx ? 'active' : ''} onClick={() => setColumnIndex(idx as 1 | 2 | 3)}>
+                        Column {idx}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {betType === 'straight' && (
+                  <label className="straight-number-input">
+                    <span>Number (0-36{variant === 'american' ? ', or 00' : ''})</span>
+                    <input type="text" value={straightNumber} onChange={(e) => setStraightNumber(e.target.value)} />
+                  </label>
+                )}
+              </div>
+            )}
+
+            {!compatible && (
+              <p className="warning-text" role="alert">
+                {STRATEGY_OPTIONS.find((s) => s.id === strategy)?.label} is designed for even-money bets (Red/Black,
+                Odd/Even, 1-18/19-36). Choose an even-money bet target or a different strategy.
+              </p>
+            )}
+          </>
+        )}
+
+        {betMode === 'coverage' && (
           <div className="control-group">
-            <span>Bet target</span>
-            <div className="button-row">
-              {BET_TYPE_OPTIONS.map((b) => (
-                <button key={b.id} className={betType === b.id ? 'active' : ''} onClick={() => setBetType(b.id)}>
-                  {b.label}
+            <span>
+              Coverage strategy
+              <InfoTip text="A fixed set of simultaneous bets placed the same way every spin — no staking progression. Base unit below sets the $ value of one leg-weight unit within the spread." />
+            </span>
+            <div className="strategy-options">
+              {availableCoverageStrategies.map((c) => (
+                <button
+                  key={c.id}
+                  className={`strategy-option ${coverageDef.id === c.id ? 'active' : ''}`}
+                  onClick={() => setCoverageStrategyId(c.id)}
+                >
+                  <strong>{c.label}</strong>
+                  <span>
+                    {coverageNumbers(c).length}/{wheelSize(variant === 'american' && c.variant === 'european' ? 'european' : variant)} numbers · {coverageTotalUnits(c)} units
+                  </span>
                 </button>
               ))}
             </div>
-            {betType === 'dozen' && (
-              <div className="button-row">
-                {[1, 2, 3].map((idx) => (
-                  <button key={idx} className={dozenIndex === idx ? 'active' : ''} onClick={() => setDozenIndex(idx as 1 | 2 | 3)}>
-                    {idx === 1 ? '1st 12' : idx === 2 ? '2nd 12' : '3rd 12'}
-                  </button>
-                ))}
-              </div>
-            )}
-            {betType === 'column' && (
-              <div className="button-row">
-                {[1, 2, 3].map((idx) => (
-                  <button key={idx} className={columnIndex === idx ? 'active' : ''} onClick={() => setColumnIndex(idx as 1 | 2 | 3)}>
-                    Column {idx}
-                  </button>
-                ))}
-              </div>
-            )}
-            {betType === 'straight' && (
-              <label className="straight-number-input">
-                <span>Number (0-36{variant === 'american' ? ', or 00' : ''})</span>
-                <input type="text" value={straightNumber} onChange={(e) => setStraightNumber(e.target.value)} />
-              </label>
-            )}
           </div>
-        )}
-
-        {!compatible && (
-          <p className="warning-text" role="alert">
-            {STRATEGY_OPTIONS.find((s) => s.id === strategy)?.label} is designed for even-money bets (Red/Black,
-            Odd/Even, 1-18/19-36). Choose an even-money bet target or a different strategy.
-          </p>
         )}
 
         <div className="field-grid">
@@ -283,7 +354,9 @@ export default function SimulatorTab() {
             <input type="number" min={10} step={10} value={startingBankroll} onChange={(e) => setStartingBankroll(Number(e.target.value))} />
           </label>
           <label>
-            <span className="field-label-row">Base unit ($)</span>
+            <span className="field-label-row">
+              {betMode === 'coverage' ? `$ per leg-unit (total $${coverageWagerPerSpin.toFixed(0)}/spin)` : 'Base unit ($)'}
+            </span>
             <input type="number" min={1} step={1} value={baseUnit} onChange={(e) => setBaseUnit(Number(e.target.value))} />
           </label>
           <label>
@@ -308,20 +381,20 @@ export default function SimulatorTab() {
           </label>
         </div>
 
-        {strategy === 'labouchere' && (
+        {betMode === 'single' && strategy === 'labouchere' && (
           <label className="straight-number-input">
             <span>Labouchère starting sequence (comma-separated units)</span>
             <input type="text" value={labouchereStart} onChange={(e) => setLabouchereStart(e.target.value)} />
           </label>
         )}
-        {strategy === 'paroli' && (
+        {betMode === 'single' && strategy === 'paroli' && (
           <label className="straight-number-input">
             <span>Paroli max consecutive wins before reset</span>
             <input type="number" min={1} max={10} value={paroliCap} onChange={(e) => setParoliCap(Number(e.target.value))} />
           </label>
         )}
 
-        {variant === 'european' && ['red', 'black', 'odd', 'even', 'low', 'high'].includes(betType) && (
+        {betMode === 'single' && variant === 'european' && ['red', 'black', 'odd', 'even', 'low', 'high'].includes(betType) && (
           <div className="control-group">
             <span>Optional European rules (zero-loss softening)</span>
             <div className="button-row">
@@ -367,7 +440,7 @@ export default function SimulatorTab() {
         </div>
       </section>
 
-      {tableSelection && strategy !== 'james-bond' && (
+      {betMode === 'single' && tableSelection && strategy !== 'james-bond' && (
         <section className="panel">
           <h3>Selected bet</h3>
           <RouletteTable variant={variant} selection={tableSelection} />
@@ -385,12 +458,34 @@ export default function SimulatorTab() {
         </section>
       )}
 
+      {betMode === 'coverage' && coverageSelection && coverageOutcome && (
+        <section className="panel">
+          <h3>Selected coverage: {coverageDef.label}</h3>
+          <RouletteTable variant={coverageDef.variant === 'both' ? variant : coverageDef.variant} selection={coverageSelection} />
+          <div className="selection-odds-readout">
+            <span>
+              Chance of hitting: <strong>{(coverageOutcome.hitProbability * 100).toFixed(2)}%</strong>
+            </span>
+            <span className="selection-odds-readout-win">
+              If it hits (avg): <strong>+${coverageOutcome.averageProfitIfHit.toFixed(2)}</strong>
+            </span>
+            <span className="selection-odds-readout-lose">
+              If it misses: <strong>-${coverageOutcome.worstCaseLoss.toFixed(2)}</strong>
+            </span>
+          </div>
+        </section>
+      )}
+
       <div aria-live="polite">
         {detailedResult && ranConfig && (
           <>
             <section className="panel strategy-ran-banner">
               <span className="strategy-ran-label">Simulated:</span>
-              <strong>{STRATEGY_OPTIONS.find((s) => s.id === ranConfig.strategy)?.label}</strong>
+              <strong>
+                {ranConfig.betMode === 'coverage'
+                  ? getCoverageStrategy(ranConfig.coverageStrategyId ?? 'two-dozens').label
+                  : STRATEGY_OPTIONS.find((s) => s.id === ranConfig.strategy)?.label}
+              </strong>
               <span className="strategy-ran-detail">
                 · {ranConfig.variant} · ${ranConfig.baseUnit} base unit · stopped: {detailedResult.stopReason}
               </span>

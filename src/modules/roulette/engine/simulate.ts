@@ -1,15 +1,18 @@
-import type { BetParams, RouletteBetType, RouletteStrategy, RouletteVariant, SpecialRulesConfig } from '../types/roulette';
+import type { BetParams, CoverageStrategyDef, RouletteBetType, RouletteCoverageStrategy, RouletteStrategy, RouletteVariant, SpecialRulesConfig } from '../types/roulette';
 import { betCoverage, houseEdgeOf, resolveBet } from './rouletteMath';
 import { spinWheel } from './rng';
 import { getStrategyDef, isBetCompatible, strategyStateLabel, type StrategyParams, type StrategyState, JAMES_BOND_SPREAD } from './strategyEngine';
+import { computeCoverageOutcome, coverageProfitIfNumberHits, coverageTotalUnits, getCoverageStrategy } from './coverageStrategies';
 
 export interface RouletteSimConfig {
   variant: RouletteVariant;
   startingBankroll: number;
   baseUnit: number;
-  strategy: RouletteStrategy;
-  betType: RouletteBetType; // ignored when strategy === 'james-bond'
+  betMode: 'single' | 'coverage';
+  strategy: RouletteStrategy; // used when betMode === 'single'
+  betType: RouletteBetType; // used when betMode === 'single' and strategy !== 'james-bond'
   betParams?: BetParams;
+  coverageStrategyId?: RouletteCoverageStrategy; // used when betMode === 'coverage'
   maxSpins: number;
   stopLoss?: number; // bankroll floor — stop if bankroll falls to/below this
   stopWin?: number; // bankroll ceiling — stop if bankroll rises to/above this
@@ -82,9 +85,27 @@ function resolveRound(
   return { profit: result.profit, outcome: result.result === 'win' ? 'win' : 'loss' };
 }
 
+// Resolves one spin of a fixed number-coverage spread (Two Dozens, Voisins du Zero, etc.)
+// by reusing the exact same per-leg profit math the Strategy tab's cards display, so the
+// simulator and the descriptive stats can never drift apart.
+function resolveCoverageRound(
+  def: CoverageStrategyDef,
+  wager: number,
+  winningNumber: number | '00',
+): { profit: number; outcome: 'win' | 'loss' } {
+  const profit = coverageProfitIfNumberHits(def, wager, winningNumber);
+  return { profit, outcome: profit > 0 ? 'win' : 'loss' };
+}
+
 export function runTrial(config: RouletteSimConfig, trackHistory: boolean): RouletteTrialResult {
-  const strategyDef = getStrategyDef(config.strategy);
-  let state: StrategyState = strategyDef.initState(config.baseUnit, config.strategyParams);
+  const usingCoverage = config.betMode === 'coverage';
+  const coverageDef = usingCoverage ? getCoverageStrategy(config.coverageStrategyId ?? 'two-dozens') : null;
+  // Coverage strategies are always flat — the same fixed spread every spin, no
+  // progression — so the wager never changes across the trial.
+  const coverageWager = coverageDef ? coverageTotalUnits(coverageDef) * config.baseUnit : 0;
+
+  const strategyDef = usingCoverage ? null : getStrategyDef(config.strategy);
+  let state: StrategyState | null = strategyDef ? strategyDef.initState(config.baseUnit, config.strategyParams) : null;
   let bankroll = config.startingBankroll;
   let peak = bankroll;
   let maxDrawdown = 0;
@@ -99,7 +120,7 @@ export function runTrial(config: RouletteSimConfig, trackHistory: boolean): Roul
   let spinsCompleted = 0;
 
   for (let i = 0; i < config.maxSpins; i++) {
-    const wager = state.currentWager;
+    const wager = usingCoverage ? coverageWager : (state as StrategyState).currentWager;
 
     if (wager > config.tableMax) {
       stopReason = 'table-max-exceeded';
@@ -112,7 +133,9 @@ export function runTrial(config: RouletteSimConfig, trackHistory: boolean): Roul
     }
 
     const pocket = spinWheel(config.variant);
-    const { profit, outcome } = resolveRound(config, wager, pocket.value);
+    const { profit, outcome } = usingCoverage
+      ? resolveCoverageRound(coverageDef!, wager, pocket.value)
+      : resolveRound(config, wager, pocket.value);
 
     bankroll += profit;
     bankroll = Math.max(0, bankroll);
@@ -126,7 +149,9 @@ export function runTrial(config: RouletteSimConfig, trackHistory: boolean): Roul
     maxDrawdown = Math.max(maxDrawdown, peak - bankroll);
     trajectory.push(bankroll);
 
-    const next = strategyDef.nextWager(state, outcome, config.baseUnit, config.tableMax, config.strategyParams);
+    const next = usingCoverage
+      ? null
+      : (strategyDef as NonNullable<typeof strategyDef>).nextWager(state as StrategyState, outcome, config.baseUnit, config.tableMax, config.strategyParams);
     if (trackHistory) {
       spinHistory.push({
         spinNumber: i + 1,
@@ -135,10 +160,10 @@ export function runTrial(config: RouletteSimConfig, trackHistory: boolean): Roul
         outcome,
         profit,
         bankrollAfter: bankroll,
-        strategyStateLabel: strategyStateLabel(config.strategy, state),
+        strategyStateLabel: usingCoverage ? coverageDef!.label : strategyStateLabel(config.strategy, state as StrategyState),
       });
     }
-    state = next.nextState;
+    if (next) state = next.nextState;
 
     if (bankroll === 0) {
       stopReason = 'ruin';
@@ -153,7 +178,7 @@ export function runTrial(config: RouletteSimConfig, trackHistory: boolean): Roul
       stopReason = 'stop-win';
       break;
     }
-    if (next.stop) {
+    if (next?.stop) {
       stopReason = config.strategy === 'labouchere' ? 'labouchere-complete' : 'table-max-exceeded';
       break;
     }
@@ -202,6 +227,14 @@ export interface RouletteSimSummary {
   profitablePct: number;
   ruinPct: number;
   vsFlatBetting?: { flatAvgFinal: number; flatRiskOfRuin: number };
+}
+
+function theoreticalHouseEdgeFor(config: RouletteSimConfig): number {
+  if (config.betMode === 'coverage') {
+    const def = getCoverageStrategy(config.coverageStrategyId ?? 'two-dozens');
+    return computeCoverageOutcome(def, config.variant, coverageTotalUnits(def) * config.baseUnit).houseEdgePct;
+  }
+  return houseEdgeOf(config.betType, config.betParams, config.variant);
 }
 
 function percentile(sorted: number[], p: number): number {
@@ -281,7 +314,7 @@ function summarize(config: RouletteSimConfig, trials: RouletteTrialResult[]): Ro
     riskOfRuin: (ruins / trials.length) * 100,
     averageFinal,
     medianFinal,
-    theoreticalHouseEdge: houseEdgeOf(config.betType, config.betParams, config.variant),
+    theoreticalHouseEdge: theoreticalHouseEdgeFor(config),
     positiveCount,
     neutralCount,
     negativeCount,
@@ -305,7 +338,7 @@ export function runMonteCarlo(config: RouletteSimConfig, runs: number): Roulette
   }
   const summary = summarize(config, trials);
 
-  if (config.strategy !== 'flat') {
+  if (config.betMode === 'single' && config.strategy !== 'flat') {
     const flatTrials: RouletteTrialResult[] = [];
     for (let t = 0; t < Math.min(runs, 500); t++) {
       flatTrials.push(runTrial({ ...config, strategy: 'flat' }, false));
@@ -342,7 +375,7 @@ export function runInBatches(
       setTimeout(step, 0);
     } else {
       const summary = summarize(config, trials);
-      if (config.strategy !== 'flat') {
+      if (config.betMode === 'single' && config.strategy !== 'flat') {
         const flatTrials: RouletteTrialResult[] = [];
         for (let t = 0; t < Math.min(totalRuns, 500); t++) {
           flatTrials.push(runTrial({ ...config, strategy: 'flat' }, false));

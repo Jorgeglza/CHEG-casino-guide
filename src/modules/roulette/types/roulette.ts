@@ -80,7 +80,13 @@ export interface SpecialRulesConfig {
 // Number-coverage strategies bet several groups of numbers at once to cover a chunk of
 // the wheel in a single spin — a different question from staking systems (RouletteStrategy
 // above), which are about how much to wager, not which numbers to cover.
-export type RouletteCoverageStrategy = 'two-dozens' | 'voisins-du-zero';
+export type RouletteCoverageStrategy =
+  | 'two-dozens'
+  | 'two-columns'
+  | 'two-six-lines'
+  | 'voisins-du-zero'
+  | 'tiers-du-cylindre'
+  | 'orphelins';
 
 export interface CoverageLeg {
   betType: RouletteBetType;
