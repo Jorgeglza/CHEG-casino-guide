@@ -1755,3 +1755,285 @@ h3,
     flex-wrap: wrap;
   }
 }
+
+/* ---------- Blackjack ---------- */
+
+.action-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.action-badge--sm {
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  min-width: 24px;
+}
+
+.rule-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.strategy-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.strategy-chart-section h4 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.strategy-chart-table th,
+.strategy-chart-table td {
+  text-align: center;
+  padding: 6px 8px;
+}
+
+.strategy-chart-table th:first-child,
+.strategy-chart-row-label {
+  text-align: left;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.strategy-chart-legend {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.strategy-chart-legend h4 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.strategy-chart-legend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 16px;
+}
+
+.strategy-chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.card-counting-panel h4 {
+  font-size: 1.05rem;
+}
+
+.disclaimer-panel {
+  border-color: var(--accent);
+}
+
+.rules-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rules-checklist li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.rules-checklist li strong {
+  color: var(--text);
+}
+
+.rules-checklist li span {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+/* Playing cards */
+.playing-card {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 74px;
+  border-radius: 8px;
+  background: #f5f5f0;
+  border: 1px solid var(--border);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.playing-card--sm {
+  width: 38px;
+  height: 54px;
+  font-size: 0.8rem;
+}
+
+.playing-card--md {
+  font-size: 1.1rem;
+}
+
+.playing-card--black {
+  color: #14171f;
+}
+
+.playing-card--red {
+  color: #c0392b;
+}
+
+.playing-card--back {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border: 1px solid var(--border);
+}
+
+.playing-card-rank {
+  font-size: 1em;
+}
+
+.playing-card-suit {
+  font-size: 1.1em;
+}
+
+.bj-hand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.bj-hand-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bj-hand-cards {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.bj-hand-total {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* Hand Trainer */
+.trainer-score-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.reset-button {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.trainer-table-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.trainer-dealer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.trainer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.trainer-action-button {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.trainer-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.trainer-action-button.correct {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.trainer-action-button.incorrect {
+  border-color: #c0392b;
+  color: #e07360;
+}
+
+.trainer-feedback {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.trainer-feedback p {
+  color: var(--text-dim);
+  margin: 8px 0 12px;
+}
+
+.trainer-feedback--correct {
+  border-color: var(--success);
+}
+
+.trainer-feedback--incorrect {
+  border-color: #c0392b;
+}
+
+@media (max-width: 640px) {
+  .strategy-chart-legend-grid {
+    grid-template-columns: 1fr;
+  }
+  .playing-card {
+    width: 44px;
+    height: 62px;
+    font-size: 0.9rem;
+  }
+}
