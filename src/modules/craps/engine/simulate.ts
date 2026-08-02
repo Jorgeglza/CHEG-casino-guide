@@ -16,7 +16,10 @@ export interface TrialResult {
   ruined: boolean;
 }
 
-function simulateTrial(config: SimConfig): TrialResult {
+export type RollOutcome = 'win' | 'lose' | 'neutral';
+export type RollTally = Record<number, { win: number; lose: number; neutral: number }>;
+
+function simulateTrial(config: SimConfig, rollTally: RollTally): TrialResult {
   const { startingBankroll, betSize, oddsMultiple, maxRolls } = config;
   const strategy = getStrategy(config.strategy);
   let bankroll = startingBankroll;
@@ -35,6 +38,7 @@ function simulateTrial(config: SimConfig): TrialResult {
 
     const roll = rollDice();
     const total = roll.total;
+    const before = bankroll;
 
     if (point === null) {
       if (total === 7 || total === 11) {
@@ -64,6 +68,13 @@ function simulateTrial(config: SimConfig): TrialResult {
       // any other roll: point still working, no bankroll change
     }
 
+    // a player can never lose more than they've wagered
+    bankroll = Math.max(0, bankroll);
+
+    const outcome: RollOutcome = bankroll > before ? 'win' : bankroll < before ? 'lose' : 'neutral';
+    const tally = rollTally[total];
+    tally[outcome]++;
+
     trajectory.push(bankroll);
   }
 
@@ -71,13 +82,20 @@ function simulateTrial(config: SimConfig): TrialResult {
 }
 
 export interface SimSummary {
-  trajectoryPercentiles: { roll: number; p10: number; p50: number; p90: number }[];
+  trajectoryPercentiles: { roll: number; p5: number; p25: number; p50: number; p75: number; p95: number }[];
   finalBankrolls: number[];
-  histogram: { bucket: string; count: number }[];
+  histogram: { bucket: string; bucketStart: number; count: number; winning: boolean }[];
+  rollDistribution: { total: number; win: number; lose: number; neutral: number }[];
   winRate: number; // % of trials ending above starting bankroll
   riskOfRuin: number; // % of trials that hit zero
   averageFinal: number;
   theoreticalHouseEdge: number;
+  positiveCount: number;
+  neutralCount: number;
+  negativeCount: number;
+  positivePct: number;
+  neutralPct: number;
+  negativePct: number;
 }
 
 function percentile(sorted: number[], p: number): number {
@@ -86,9 +104,14 @@ function percentile(sorted: number[], p: number): number {
 }
 
 export function runMonteCarlo(config: SimConfig): SimSummary {
+  const rollTally: RollTally = {};
+  for (let total = 2; total <= 12; total++) {
+    rollTally[total] = { win: 0, lose: 0, neutral: 0 };
+  }
+
   const trials: TrialResult[] = [];
   for (let t = 0; t < config.trials; t++) {
-    trials.push(simulateTrial(config));
+    trials.push(simulateTrial(config, rollTally));
   }
 
   const rollCount = config.maxRolls;
@@ -99,9 +122,11 @@ export function runMonteCarlo(config: SimConfig): SimSummary {
     const valuesAtRoll = trials.map((tr) => tr.trajectory[r] ?? tr.finalBankroll).sort((a, b) => a - b);
     trajectoryPercentiles.push({
       roll: r + 1,
-      p10: percentile(valuesAtRoll, 10),
+      p5: percentile(valuesAtRoll, 5),
+      p25: percentile(valuesAtRoll, 25),
       p50: percentile(valuesAtRoll, 50),
-      p90: percentile(valuesAtRoll, 90),
+      p75: percentile(valuesAtRoll, 75),
+      p95: percentile(valuesAtRoll, 95),
     });
   }
 
@@ -110,8 +135,13 @@ export function runMonteCarlo(config: SimConfig): SimSummary {
   const ruins = trials.filter((tr) => tr.ruined).length;
   const averageFinal = finalBankrolls.reduce((a, b) => a + b, 0) / finalBankrolls.length;
 
-  const min = Math.min(...finalBankrolls);
-  const max = Math.max(...finalBankrolls);
+  const positiveCount = finalBankrolls.filter((b) => b > config.startingBankroll).length;
+  const negativeCount = finalBankrolls.filter((b) => b < config.startingBankroll).length;
+  const neutralCount = finalBankrolls.length - positiveCount - negativeCount;
+
+  // bankroll can never go negative (clamped in simulateTrial), so bucket from 0
+  const min = 0;
+  const max = Math.max(...finalBankrolls, config.startingBankroll);
   const bucketCount = 12;
   const bucketSize = Math.max(1, (max - min) / bucketCount);
   const buckets = new Array(bucketCount).fill(0);
@@ -119,18 +149,34 @@ export function runMonteCarlo(config: SimConfig): SimSummary {
     const idx = Math.min(bucketCount - 1, Math.floor((b - min) / bucketSize));
     buckets[idx]++;
   });
-  const histogram = buckets.map((count, i) => ({
-    bucket: `$${Math.round(min + i * bucketSize)}`,
-    count,
-  }));
+  const histogram = buckets.map((count, i) => {
+    const bucketStart = min + i * bucketSize;
+    return {
+      bucket: `$${Math.round(bucketStart)}`,
+      bucketStart,
+      count,
+      winning: bucketStart + bucketSize >= config.startingBankroll,
+    };
+  });
+
+  const rollDistribution = Object.entries(rollTally)
+    .map(([total, tally]) => ({ total: Number(total), ...tally }))
+    .sort((a, b) => a.total - b.total);
 
   return {
     trajectoryPercentiles,
     finalBankrolls,
     histogram,
+    rollDistribution,
     winRate: (wins / trials.length) * 100,
     riskOfRuin: (ruins / trials.length) * 100,
     averageFinal,
     theoreticalHouseEdge: config.betSize > 0 ? (1.41 * config.betSize) / (config.betSize + config.betSize * config.oddsMultiple || 1) : 1.41,
+    positiveCount,
+    neutralCount,
+    negativeCount,
+    positivePct: (positiveCount / trials.length) * 100,
+    neutralPct: (neutralCount / trials.length) * 100,
+    negativePct: (negativeCount / trials.length) * 100,
   };
 }

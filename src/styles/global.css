@@ -634,6 +634,80 @@ h3,
   color: var(--text-dim);
 }
 
+.kpi-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-left: 4px solid var(--border);
+}
+
+.kpi-positive {
+  border-left-color: #3d9970;
+}
+
+.kpi-neutral {
+  border-left-color: #8d99ae;
+}
+
+.kpi-negative {
+  border-left-color: #c0392b;
+}
+
+.kpi-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kpi-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.kpi-sub {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.chart-note {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: -6px;
+  margin-bottom: 10px;
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.legend-swatch-win {
+  background: #3d9970;
+}
+
+.legend-swatch-lose {
+  background: #c0392b;
+}
+
+.legend-swatch-neutral {
+  background: #8d99ae;
+}
+
 /* Rules */
 .term-grid {
   display: grid;

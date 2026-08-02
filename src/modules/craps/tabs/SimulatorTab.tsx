@@ -5,6 +5,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   ResponsiveContainer,
@@ -161,6 +162,24 @@ export default function SimulatorTab() {
             </span>
           </section>
 
+          <section className="panel kpi-panel">
+            <div className="kpi kpi-positive">
+              <span className="kpi-label">Positive</span>
+              <span className="kpi-value">{result.positiveCount.toLocaleString()}</span>
+              <span className="kpi-sub">{result.positivePct.toFixed(1)}% of trials above starting bankroll</span>
+            </div>
+            <div className="kpi kpi-neutral">
+              <span className="kpi-label">Neutral</span>
+              <span className="kpi-value">{result.neutralCount.toLocaleString()}</span>
+              <span className="kpi-sub">{result.neutralPct.toFixed(1)}% of trials at starting bankroll</span>
+            </div>
+            <div className="kpi kpi-negative">
+              <span className="kpi-label">Negative</span>
+              <span className="kpi-value">{result.negativeCount.toLocaleString()}</span>
+              <span className="kpi-sub">{result.negativePct.toFixed(1)}% of trials below starting bankroll</span>
+            </div>
+          </section>
+
           <section className="panel stats-panel">
             <div className="stat">
               <span className="stat-label">Win rate</span>
@@ -180,7 +199,11 @@ export default function SimulatorTab() {
           </section>
 
           <section className="panel">
-            <h3>Bankroll over time (10th / 50th / 90th percentile)</h3>
+            <h3>Bankroll over time</h3>
+            <p className="chart-note">
+              Shaded band is the 25th–75th percentile (the typical range — half of all trials land inside it) with
+              the median in gold. Dashed lines mark the 5th/95th percentile tails for reference.
+            </p>
             <ResponsiveContainer width="100%" height={320}>
               <AreaChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
@@ -188,22 +211,61 @@ export default function SimulatorTab() {
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(v) => `$${Number(v).toFixed(0)}`} labelFormatter={(l) => `Roll ${l}`} />
                 <Legend />
-                <Area type="monotone" dataKey="p90" name="90th pct" stroke="#3d9970" fill="#3d997022" strokeWidth={1} />
+                <Area type="monotone" dataKey="p75" name="75th pct" stroke="#3d9970" fill="#3d997022" strokeWidth={1} />
+                <Area type="monotone" dataKey="p25" name="25th pct" stroke="#c0392b" fill="#c0392b22" strokeWidth={1} />
+                <Line type="monotone" dataKey="p95" name="95th pct" stroke="#3d9970" strokeWidth={1} strokeDasharray="4 3" dot={false} />
+                <Line type="monotone" dataKey="p5" name="5th pct" stroke="#c0392b" strokeWidth={1} strokeDasharray="4 3" dot={false} />
                 <Line type="monotone" dataKey="p50" name="Median" stroke="#f4d35e" strokeWidth={2} dot={false} />
-                <Area type="monotone" dataKey="p10" name="10th pct" stroke="#c0392b" fill="#c0392b22" strokeWidth={1} />
               </AreaChart>
             </ResponsiveContainer>
           </section>
 
           <section className="panel">
             <h3>Final bankroll distribution</h3>
+            <p className="chart-note">
+              <span className="legend-swatch legend-swatch-win" /> ending at or above starting bankroll (${startingBankroll})
+              &nbsp;&nbsp;
+              <span className="legend-swatch legend-swatch-lose" /> ending below starting bankroll
+            </p>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={result.histogram}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                 <XAxis dataKey="bucket" tick={{ fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v) => [v, 'Trials']} />
+                <Bar dataKey="count" name="Trials" radius={[4, 4, 0, 0]}>
+                  {result.histogram.map((entry, i) => (
+                    <Cell key={i} fill={entry.winning ? '#3d9970' : '#c0392b'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </section>
+
+          <section className="panel">
+            <h3>Dice roll distribution</h3>
+            <p className="chart-note">
+              Every roll across all trials, broken down by whether it moved the bankroll up, down, or left it
+              unchanged at that point in the game.
+              <br />
+              <span className="legend-swatch legend-swatch-win" /> winning roll&nbsp;&nbsp;
+              <span className="legend-swatch legend-swatch-lose" /> losing roll&nbsp;&nbsp;
+              <span className="legend-swatch legend-swatch-neutral" /> no change
+            </p>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={result.rollDistribution}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                <XAxis
+                  dataKey="total"
+                  tick={{ fontSize: 11 }}
+                  label={{ value: 'Dice total', position: 'insideBottom', offset: -4, fontSize: 11 }}
+                />
+                <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <Bar dataKey="count" name="Trials" fill="#457b9d" radius={[4, 4, 0, 0]} />
+                <Legend />
+                <Bar dataKey="win" name="Winning roll" stackId="rolls" fill="#3d9970" />
+                <Bar dataKey="neutral" name="No change" stackId="rolls" fill="#8d99ae" />
+                <Bar dataKey="lose" name="Losing roll" stackId="rolls" fill="#c0392b" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </section>
