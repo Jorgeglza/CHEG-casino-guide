@@ -76,3 +76,40 @@ export interface SpecialRulesConfig {
   laPartage: boolean;
   enPrison: boolean;
 }
+
+// Number-coverage strategies bet several groups of numbers at once to cover a chunk of
+// the wheel in a single spin — a different question from staking systems (RouletteStrategy
+// above), which are about how much to wager, not which numbers to cover.
+export type RouletteCoverageStrategy = 'two-dozens' | 'voisins-du-zero';
+
+export interface CoverageLeg {
+  betType: RouletteBetType;
+  params?: BetParams;
+  label: string; // e.g. "1st dozen" or "Trio 0-2-3"
+  units: number; // relative stake weight within the strategy's fixed chip allocation
+}
+
+export interface CoverageStrategyDef {
+  id: RouletteCoverageStrategy;
+  label: string;
+  description: string;
+  variant: RouletteVariant | 'both';
+  legs: CoverageLeg[];
+  defaultTotalStake: number;
+}
+
+export interface CoverageNumberOutcome {
+  number: number | '00';
+  profit: number; // net bankroll change if this exact number hits, given the current total stake
+}
+
+export interface CoverageOutcome {
+  numbersCovered: number;
+  hitProbability: number; // 0-1
+  houseEdgePct: number;
+  totalStake: number;
+  worstCaseLoss: number;
+  bestCaseProfit: number;
+  averageProfitIfHit: number;
+  perNumberPayout: CoverageNumberOutcome[];
+}

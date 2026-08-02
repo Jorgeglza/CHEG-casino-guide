@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import StrategyCard from '../components/StrategyCard';
+import CoverageStrategyCard from '../components/CoverageStrategyCard';
 import { HOUSE_EDGE_DISCLAIMER, RESPONSIBLE_GAMBLING_NOTICE, STRATEGY_META } from '../data/rouletteStrategies';
-import type { RouletteStrategy } from '../types/roulette';
+import { COVERAGE_STRATEGIES } from '../engine/coverageStrategies';
+import type { RouletteStrategy, RouletteVariant } from '../types/roulette';
 
 export default function StrategyTab() {
   const [expanded, setExpanded] = useState<RouletteStrategy | null>('flat');
+  const [coverageVariant, setCoverageVariant] = useState<RouletteVariant>('european');
 
   return (
     <div className="tab-content strategy-tab">
@@ -38,8 +41,38 @@ export default function StrategyTab() {
         </ul>
       </section>
 
+      <section className="panel coverage-strategies-panel">
+        <h3>What to bet on: number coverage</h3>
+        <p>
+          These strategies answer a different question than the ones below: not <em>how much</em> to wager, but{' '}
+          <em>which numbers</em> to cover in a single spin. Each card shows the exact numbers covered on the table,
+          the live odds of hitting any of them, and what a hit or a miss is actually worth in dollars for the stake
+          you enter.
+        </p>
+        <div className="control-group">
+          <span>Variant</span>
+          <div className="button-row">
+            <button className={coverageVariant === 'european' ? 'active' : ''} onClick={() => setCoverageVariant('european')}>
+              European
+            </button>
+            <button className={coverageVariant === 'american' ? 'active' : ''} onClick={() => setCoverageVariant('american')}>
+              American
+            </button>
+          </div>
+        </div>
+        <div className="coverage-strategy-list">
+          {COVERAGE_STRATEGIES.map((c) => (
+            <CoverageStrategyCard key={c.id} def={c} variant={coverageVariant} />
+          ))}
+        </div>
+        <p className="strategy-house-edge-note">
+          Both cards above still carry the same underlying house edge as a single standard bet — covering more
+          numbers changes how often you win and by how much, not the long-run expected loss per dollar wagered.
+        </p>
+      </section>
+
       <section className="panel strategy-cards-panel">
-        <h3>Betting systems</h3>
+        <h3>How much to bet: staking systems</h3>
         <p className="chart-note">{HOUSE_EDGE_DISCLAIMER}</p>
         <div className="strategy-card-list">
           {STRATEGY_META.map((s) => (
@@ -54,7 +87,7 @@ export default function StrategyTab() {
       </section>
 
       <section className="panel">
-        <h3>Comparing strategies</h3>
+        <h3>Comparing staking systems</h3>
         <div className="bet-table-wrapper">
           <table className="bet-table">
             <thead>

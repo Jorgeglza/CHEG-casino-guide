@@ -16,7 +16,7 @@ import {
 import InfoTip from '../components/InfoTip';
 import RouletteTable from '../components/RouletteTable';
 import RouletteWheel from '../components/RouletteWheel';
-import { betCoverage, houseEdgeOf } from '../engine/rouletteMath';
+import { betCoverage, houseEdgeOf, PAYOUT_TABLE, probabilityOf } from '../engine/rouletteMath';
 import { pocketColorOf } from '../engine/wheelOrder';
 import { isBetCompatible, runInBatches, simulateSingleRun, type RouletteSimConfig, type RouletteSimSummary, type RouletteTrialResult } from '../engine/simulate';
 import { HOUSE_EDGE_DISCLAIMER, RESPONSIBLE_GAMBLING_NOTICE } from '../data/rouletteStrategies';
@@ -191,6 +191,9 @@ export default function SimulatorTab() {
     : undefined;
 
   const theoreticalEdge = houseEdgeOf(betType, betParams, variant);
+  const selectionHitProbability = tableSelection ? probabilityOf(betType, betParams, variant) : 0;
+  const [selectionWinRatio, selectionStakeRatio] = PAYOUT_TABLE[betType];
+  const impliedWin = (baseUnit * selectionWinRatio) / selectionStakeRatio;
 
   return (
     <div className="tab-content simulator-tab">
@@ -364,10 +367,21 @@ export default function SimulatorTab() {
         </div>
       </section>
 
-      {tableSelection && (
+      {tableSelection && strategy !== 'james-bond' && (
         <section className="panel">
           <h3>Selected bet</h3>
           <RouletteTable variant={variant} selection={tableSelection} />
+          <div className="selection-odds-readout">
+            <span>
+              Chance of hitting: <strong>{(selectionHitProbability * 100).toFixed(2)}%</strong>
+            </span>
+            <span className="selection-odds-readout-win">
+              If it hits: <strong>+${impliedWin.toFixed(2)}</strong>
+            </span>
+            <span className="selection-odds-readout-lose">
+              If it misses: <strong>-${baseUnit.toFixed(2)}</strong>
+            </span>
+          </div>
         </section>
       )}
 

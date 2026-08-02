@@ -1541,6 +1541,88 @@ h3,
   overflow-y: auto;
 }
 
+/* Coverage strategies */
+.coverage-strategy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.coverage-strategy-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.coverage-strategy-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coverage-strategy-header strong {
+  font-size: 0.95rem;
+  display: block;
+}
+
+.coverage-strategy-header .one-roll-tag {
+  margin-left: 0;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.coverage-legs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.coverage-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.stat-value--positive {
+  color: #3d9970;
+}
+
+.stat-value--negative {
+  color: #e07360;
+}
+
+/* Selected-bet odds readout */
+.selection-odds-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.selection-odds-readout-win strong {
+  color: #3d9970;
+}
+
+.selection-odds-readout-lose strong {
+  color: #e07360;
+}
+
 @media (max-width: 640px) {
   .roulette-table-grid {
     min-width: 300px;
@@ -1549,6 +1631,9 @@ h3,
     width: 36px;
   }
   .strategy-card-header {
+    flex-wrap: wrap;
+  }
+  .coverage-strategy-header {
     flex-wrap: wrap;
   }
 }
