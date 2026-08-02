@@ -1,6 +1,6 @@
 export interface BetInfo {
   name: string;
-  category: 'Line' | 'Odds' | 'Place' | 'Field' | 'Proposition' | 'Hardway';
+  category: 'Line' | 'Odds' | 'Place' | 'Field' | 'Proposition' | 'Hardway' | 'Lay';
   payout: string;
   trueOdds: string;
   houseEdge: number; // percent
@@ -107,6 +107,33 @@ export const betTable: BetInfo[] = [
     houseEdge: 4.76,
     oneRoll: false,
     notes: 'Pay a 5% commission for true odds payout. Better than placing 4/10 outright.',
+  },
+  {
+    name: 'Lay 4 or 10',
+    category: 'Lay',
+    payout: '1:2 (minus 5% vig)',
+    trueOdds: '1:2',
+    houseEdge: 2.44,
+    oneRoll: false,
+    notes: "Betting against the number — you win if 7 rolls before it. Payout is inverted from Place bets. Vig is 5% of the win amount; edge drops to 1.67% at casinos that only charge vig on a win instead of upfront.",
+  },
+  {
+    name: 'Lay 5 or 9',
+    category: 'Lay',
+    payout: '2:3 (minus 5% vig)',
+    trueOdds: '2:3',
+    houseEdge: 3.23,
+    oneRoll: false,
+    notes: 'Betting against the number. Worse edge than Lay 4/10 since 5 and 9 repeat more often, shrinking the payout advantage relative to the flat 5% vig.',
+  },
+  {
+    name: 'Lay 6 or 8',
+    category: 'Lay',
+    payout: '5:6 (minus 5% vig)',
+    trueOdds: '5:6',
+    houseEdge: 4.0,
+    oneRoll: false,
+    notes: 'Betting against the number. The worst of the Lay bets — 6 and 8 repeat often enough that the vig eats a larger share of an already-thin payout.',
   },
   {
     name: 'Field',

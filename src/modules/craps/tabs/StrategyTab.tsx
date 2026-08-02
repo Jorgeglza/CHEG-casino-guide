@@ -191,6 +191,12 @@ export default function StrategyTab() {
             <strong>Let it ride.</strong> Once your odds are up, leave them working through each new point rather than
             pulling them down — the edge never gets better by removing your best bet.
           </li>
+          <li>
+            <strong>No combination of bets beats the house edge.</strong> "Three Point Molly," working the Don't side
+            with Lay bets, pressing, regressing — every named system out there is just a different mix of the same
+            bets on this page. House edge is set per-bet, not by pattern or combination, so stacking more numbers
+            changes your variance and how much is at risk on a seven-out, not your long-run expected loss.
+          </li>
         </ul>
       </section>
     </div>

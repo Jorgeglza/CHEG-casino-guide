@@ -4,7 +4,7 @@ import EdgeBadge from '../components/EdgeBadge';
 
 type SortKey = 'name' | 'houseEdge' | 'category';
 
-const CATEGORIES = ['All', 'Line', 'Odds', 'Place', 'Field', 'Proposition', 'Hardway'] as const;
+const CATEGORIES = ['All', 'Line', 'Odds', 'Place', 'Lay', 'Field', 'Proposition', 'Hardway'] as const;
 
 export default function BetReferenceTab() {
   const [sortKey, setSortKey] = useState<SortKey>('houseEdge');
