@@ -1,8 +1,15 @@
-import type { BetParams, CoverageStrategyDef, RouletteBetType, RouletteCoverageStrategy, RouletteStrategy, RouletteVariant, SpecialRulesConfig } from '../types/roulette';
+import type { BetParams, RouletteBetType, RouletteCoverageStrategy, RouletteStrategy, RouletteVariant, SpecialRulesConfig } from '../types/roulette';
 import { betCoverage, houseEdgeOf, resolveBet } from './rouletteMath';
 import { spinWheel } from './rng';
 import { getStrategyDef, isBetCompatible, strategyStateLabel, type StrategyParams, type StrategyState, JAMES_BOND_SPREAD } from './strategyEngine';
-import { computeCoverageOutcome, coverageProfitIfNumberHits, coverageTotalUnits, getCoverageStrategy } from './coverageStrategies';
+import {
+  computeCoverageOutcome,
+  coverageTotalUnits,
+  getCoverageStrategy,
+  precomputeCoverageLegs,
+  resolveCoverageProfit,
+  type PrecomputedCoverage,
+} from './coverageStrategies';
 
 export interface RouletteSimConfig {
   variant: RouletteVariant;
@@ -53,25 +60,21 @@ export interface RouletteTrialResult {
   losses: number;
 }
 
-// Resolves one round of betting. For every strategy except James Bond this is a single
-// bet; James Bond places its fixed three-way spread every spin instead of a scalar wager.
+interface PrecomputedJamesBondLeg {
+  betType: RouletteBetType;
+  numbers: (number | '00')[];
+  fraction: number;
+}
+
+// Resolves one round of a single bet, given its coverage precomputed once per trial
+// (rather than recomputed on every spin — a Monte Carlo run can call this millions of
+// times).
 function resolveRound(
   config: RouletteSimConfig,
+  numbers: (number | '00')[],
   wager: number,
   winningNumber: number | '00',
 ): { profit: number; outcome: 'win' | 'loss' } {
-  if (config.strategy === 'james-bond') {
-    let profit = 0;
-    for (const leg of JAMES_BOND_SPREAD) {
-      const stake = wager * leg.fraction;
-      const numbers = betCoverage(leg.betType, leg.params);
-      const result = resolveBet(leg.betType, numbers, stake, winningNumber, config.specialRules);
-      profit += result.profit;
-    }
-    return { profit, outcome: profit > 0 ? 'win' : 'loss' };
-  }
-
-  const numbers = betCoverage(config.betType, config.betParams);
   const result = resolveBet(config.betType, numbers, wager, winningNumber, config.specialRules);
 
   if (result.result === 'imprisoned') {
@@ -85,24 +88,47 @@ function resolveRound(
   return { profit: result.profit, outcome: result.result === 'win' ? 'win' : 'loss' };
 }
 
+function resolveJamesBondRound(
+  legs: PrecomputedJamesBondLeg[],
+  wager: number,
+  winningNumber: number | '00',
+  specialRules: SpecialRulesConfig,
+): { profit: number; outcome: 'win' | 'loss' } {
+  let profit = 0;
+  for (const leg of legs) {
+    const stake = wager * leg.fraction;
+    const result = resolveBet(leg.betType, leg.numbers, stake, winningNumber, specialRules);
+    profit += result.profit;
+  }
+  return { profit, outcome: profit > 0 ? 'win' : 'loss' };
+}
+
 // Resolves one spin of a fixed number-coverage spread (Two Dozens, Voisins du Zero, etc.)
 // by reusing the exact same per-leg profit math the Strategy tab's cards display, so the
 // simulator and the descriptive stats can never drift apart.
 function resolveCoverageRound(
-  def: CoverageStrategyDef,
+  precomputed: PrecomputedCoverage,
   wager: number,
   winningNumber: number | '00',
 ): { profit: number; outcome: 'win' | 'loss' } {
-  const profit = coverageProfitIfNumberHits(def, wager, winningNumber);
+  const profit = resolveCoverageProfit(precomputed, wager, winningNumber);
   return { profit, outcome: profit > 0 ? 'win' : 'loss' };
 }
 
 export function runTrial(config: RouletteSimConfig, trackHistory: boolean): RouletteTrialResult {
   const usingCoverage = config.betMode === 'coverage';
+  const usingJamesBond = !usingCoverage && config.strategy === 'james-bond';
+
+  // Precompute whichever coverage this trial needs once, rather than recomputing on
+  // every spin — a Monte Carlo run can call the resolve step millions of times.
   const coverageDef = usingCoverage ? getCoverageStrategy(config.coverageStrategyId ?? 'two-dozens') : null;
-  // Coverage strategies are always flat — the same fixed spread every spin, no
-  // progression — so the wager never changes across the trial.
-  const coverageWager = coverageDef ? coverageTotalUnits(coverageDef) * config.baseUnit : 0;
+  const coveragePrecomputed: PrecomputedCoverage | null = coverageDef ? precomputeCoverageLegs(coverageDef) : null;
+  const coverageWager = coveragePrecomputed ? coveragePrecomputed.totalUnits * config.baseUnit : 0;
+  const jamesBondLegs: PrecomputedJamesBondLeg[] = usingJamesBond
+    ? JAMES_BOND_SPREAD.map((leg) => ({ betType: leg.betType, numbers: betCoverage(leg.betType, leg.params), fraction: leg.fraction }))
+    : [];
+  const singleBetNumbers: (number | '00')[] =
+    !usingCoverage && !usingJamesBond ? betCoverage(config.betType, config.betParams) : [];
 
   const strategyDef = usingCoverage ? null : getStrategyDef(config.strategy);
   let state: StrategyState | null = strategyDef ? strategyDef.initState(config.baseUnit, config.strategyParams) : null;
@@ -134,8 +160,10 @@ export function runTrial(config: RouletteSimConfig, trackHistory: boolean): Roul
 
     const pocket = spinWheel(config.variant);
     const { profit, outcome } = usingCoverage
-      ? resolveCoverageRound(coverageDef!, wager, pocket.value)
-      : resolveRound(config, wager, pocket.value);
+      ? resolveCoverageRound(coveragePrecomputed!, wager, pocket.value)
+      : usingJamesBond
+        ? resolveJamesBondRound(jamesBondLegs, wager, pocket.value, config.specialRules)
+        : resolveRound(config, singleBetNumbers, wager, pocket.value);
 
     bankroll += profit;
     bankroll = Math.max(0, bankroll);

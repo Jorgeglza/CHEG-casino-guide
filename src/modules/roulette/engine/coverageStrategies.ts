@@ -113,25 +113,49 @@ export function coverageTotalUnits(def: CoverageStrategyDef): number {
   return def.legs.reduce((a, l) => a + l.units, 0);
 }
 
+export interface PrecomputedCoverageLeg {
+  numbers: Set<number | '00'>;
+  units: number;
+  win: number;
+  stakeRatio: number;
+}
+
+export interface PrecomputedCoverage {
+  legs: PrecomputedCoverageLeg[];
+  totalUnits: number;
+}
+
+// Resolves each leg's coverage/payout once instead of on every spin — the Monte Carlo
+// simulator calls resolveCoverageProfit() up to millions of times per run, and recomputing
+// betCoverage() for every leg on every single spin was a meaningful chunk of that cost.
+export function precomputeCoverageLegs(def: CoverageStrategyDef): PrecomputedCoverage {
+  return {
+    legs: def.legs.map((leg) => {
+      const [win, stakeRatio] = PAYOUT_TABLE[leg.betType];
+      return { numbers: new Set(betCoverage(leg.betType, leg.params)), units: leg.units, win, stakeRatio };
+    }),
+    totalUnits: coverageTotalUnits(def),
+  };
+}
+
 // Net profit if `winningNumber` lands, given a total stake split across legs by unit
 // weight. Sums every leg that covers the number (so a number covered by two legs, like
 // Orphelins' 17, pays out on both) and subtracts the stake on every leg that doesn't.
-// This is the single primitive reused by both the live Strategy-tab stats table and the
-// Monte Carlo simulator's per-spin resolution, so the two can never drift apart.
-export function coverageProfitIfNumberHits(def: CoverageStrategyDef, totalStake: number, winningNumber: number | '00'): number {
-  const stakePerUnit = totalStake / coverageTotalUnits(def);
+export function resolveCoverageProfit(precomputed: PrecomputedCoverage, totalStake: number, winningNumber: number | '00'): number {
+  const stakePerUnit = totalStake / precomputed.totalUnits;
   let profit = 0;
-  for (const leg of def.legs) {
+  for (const leg of precomputed.legs) {
     const legStake = leg.units * stakePerUnit;
-    const covered = betCoverage(leg.betType, leg.params);
-    if (covered.includes(winningNumber)) {
-      const [win, stakeRatio] = PAYOUT_TABLE[leg.betType];
-      profit += (legStake * win) / stakeRatio;
-    } else {
-      profit -= legStake;
-    }
+    profit += leg.numbers.has(winningNumber) ? (legStake * leg.win) / leg.stakeRatio : -legStake;
   }
   return profit;
+}
+
+// Convenience wrapper for callers that aren't in a hot loop (Strategy tab cards, Bet
+// Reference-style displays) — precomputes once and resolves once. This is the single
+// primitive those call sites use, so they can never drift from the simulator's math.
+export function coverageProfitIfNumberHits(def: CoverageStrategyDef, totalStake: number, winningNumber: number | '00'): number {
+  return resolveCoverageProfit(precomputeCoverageLegs(def), totalStake, winningNumber);
 }
 
 // Full outcome breakdown for a given total stake — used by the Strategy tab's cards.

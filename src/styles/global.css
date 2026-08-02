@@ -1722,15 +1722,6 @@ h3,
 }
 
 /* Beginner guidance */
-.beginner-callout {
-  border-color: var(--accent);
-  background: rgba(212, 175, 55, 0.06);
-}
-
-.beginner-callout h3 {
-  color: var(--accent);
-}
-
 .bet-mechanics-note {
   margin-top: 10px;
   padding: 12px 14px;

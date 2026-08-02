@@ -28,10 +28,21 @@ export function wheelSize(variant: RouletteVariant): number {
   return variant === 'european' ? 37 : 38;
 }
 
+// The wheel layout is fixed per variant, so build it once and reuse the same array/objects
+// on every call — spinWheel() calls this on every single spin, and Monte Carlo runs call
+// spinWheel up to millions of times per run, so re-allocating 37-38 objects each time was
+// the dominant cost of a large simulation. Nothing mutates the returned pockets.
+const wheelCache = new Map<RouletteVariant, RoulettePocket[]>();
+
 export function buildWheel(variant: RouletteVariant): RoulettePocket[] {
-  return wheelOrderFor(variant).map((value, wheelIndex) => ({
-    value,
-    color: pocketColorOf(value),
-    wheelIndex,
-  }));
+  let wheel = wheelCache.get(variant);
+  if (!wheel) {
+    wheel = wheelOrderFor(variant).map((value, wheelIndex) => ({
+      value,
+      color: pocketColorOf(value),
+      wheelIndex,
+    }));
+    wheelCache.set(variant, wheel);
+  }
+  return wheel;
 }

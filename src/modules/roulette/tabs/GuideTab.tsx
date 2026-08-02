@@ -58,31 +58,42 @@ interface GuideRow {
   summary: RouletteSimSummary;
 }
 
+// Computing all 13 reference simulations takes a moment; RouletteModule unmounts each
+// tab when it's not active, so without this module-level cache, switching away from the
+// Guide tab and back would recompute everything from scratch every time. Cached once per
+// page load — the reference conditions never change, so there's nothing to invalidate.
+let cachedRows: GuideRow[] | null = null;
+
+function computeRows(): GuideRow[] {
+  return [
+    ...STAKING_IDS.map((id) => ({
+      id,
+      label: getStrategyMeta(id).label,
+      mode: 'staking' as const,
+      wheel: REFERENCE_VARIANT,
+      summary: runMonteCarlo(stakingConfig(id), REFERENCE_TRIALS),
+    })),
+    ...COVERAGE_IDS.map((id) => {
+      const config = coverageConfig(id);
+      return {
+        id,
+        label: COVERAGE_STRATEGIES.find((c) => c.id === id)!.label,
+        mode: 'coverage' as const,
+        wheel: config.variant,
+        summary: runMonteCarlo(config, REFERENCE_TRIALS),
+      };
+    }),
+  ];
+}
+
 export default function GuideTab() {
-  const [rows, setRows] = useState<GuideRow[] | null>(null);
+  const [rows, setRows] = useState<GuideRow[] | null>(cachedRows);
 
   useEffect(() => {
+    if (cachedRows) return;
     const timer = setTimeout(() => {
-      const computed: GuideRow[] = [
-        ...STAKING_IDS.map((id) => ({
-          id,
-          label: getStrategyMeta(id).label,
-          mode: 'staking' as const,
-          wheel: REFERENCE_VARIANT,
-          summary: runMonteCarlo(stakingConfig(id), REFERENCE_TRIALS),
-        })),
-        ...COVERAGE_IDS.map((id) => {
-          const config = coverageConfig(id);
-          return {
-            id,
-            label: COVERAGE_STRATEGIES.find((c) => c.id === id)!.label,
-            mode: 'coverage' as const,
-            wheel: config.variant,
-            summary: runMonteCarlo(config, REFERENCE_TRIALS),
-          };
-        }),
-      ];
-      setRows(computed);
+      cachedRows = computeRows();
+      setRows(cachedRows);
     }, 20);
     return () => clearTimeout(timer);
   }, []);
