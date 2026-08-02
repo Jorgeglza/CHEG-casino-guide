@@ -5,7 +5,7 @@ import EdgeBadge from '../components/EdgeBadge';
 import type { RouletteVariant } from '../types/roulette';
 
 export default function BetReferenceTab() {
-  const [variant, setVariant] = useState<RouletteVariant>('european');
+  const [variant, setVariant] = useState<RouletteVariant>('american');
 
   const rows = useMemo(
     () =>
@@ -36,11 +36,11 @@ export default function BetReferenceTab() {
         <div className="control-group">
           <span>Variant</span>
           <div className="button-row">
-            <button className={variant === 'european' ? 'active' : ''} onClick={() => setVariant('european')}>
-              European (recommended)
-            </button>
             <button className={variant === 'american' ? 'active' : ''} onClick={() => setVariant('american')}>
-              American
+              American (most common in the US)
+            </button>
+            <button className={variant === 'european' ? 'active' : ''} onClick={() => setVariant('european')}>
+              European (lower house edge)
             </button>
           </div>
         </div>

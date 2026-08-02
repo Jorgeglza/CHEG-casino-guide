@@ -1,5 +1,6 @@
-import { houseEdgeOf } from '../engine/rouletteMath';
+import { betCoverage, houseEdgeOf } from '../engine/rouletteMath';
 import RouletteWheel from '../components/RouletteWheel';
+import RouletteTable from '../components/RouletteTable';
 
 const EU_STRAIGHT_EDGE = houseEdgeOf('straight', { numbers: [17] }, 'european');
 const US_STRAIGHT_EDGE = houseEdgeOf('straight', { numbers: [17] }, 'american');
@@ -28,6 +29,23 @@ export default function RulesTab() {
           <li>Losing bets are collected by the house.</li>
           <li>Winning bets are paid out according to the payout table for each bet type.</li>
         </ol>
+      </section>
+
+      <section className="panel">
+        <h3>Where to bet: the table layout</h3>
+        <p>
+          This is the betting layout (or "felt") — separate from the wheel that decides the outcome. You place chips
+          here, not on the wheel. The 0 (and 00 on American tables) sit in their own column on the left; numbers
+          1-36 fill the grid to their right; the three column boxes and three dozen boxes sit directly beneath the
+          grid; and the six outside-bet boxes — Low/High, Even/Odd, Red/Black — sit at the very bottom.
+        </p>
+        <RouletteTable variant="american" selection={{ type: 'red', numbers: betCoverage('red') }} />
+        <p className="chart-note">
+          Highlighted above: what a Red bet looks like — every red number lights up, because a single chip in the
+          "Red" box at the bottom wins if the ball lands on any of them. That's the same idea behind every bet type:
+          one chip placement, one set of covered numbers. The Bet Reference and Simulator tabs let you see this
+          highlighting update live for any bet you pick.
+        </p>
       </section>
 
       <section className="panel">

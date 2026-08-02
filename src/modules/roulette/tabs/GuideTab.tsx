@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import EdgeBadge from '../components/EdgeBadge';
 import { runMonteCarlo, type RouletteSimConfig, type RouletteSimSummary } from '../engine/simulate';
-import { COVERAGE_STRATEGIES } from '../engine/coverageStrategies';
+import { COVERAGE_STRATEGIES, getCoverageStrategy } from '../engine/coverageStrategies';
 import { STRATEGY_META, getCoverageGuideMeta, getStrategyMeta } from '../data/rouletteStrategies';
 import type { RouletteCoverageStrategy, RouletteStrategy } from '../types/roulette';
 
@@ -13,9 +13,15 @@ const REFERENCE_TRIALS = 1000;
 const STAKING_IDS: RouletteStrategy[] = ['flat', 'martingale', 'dalembert', 'fibonacci', 'labouchere', 'paroli', 'james-bond'];
 const COVERAGE_IDS: RouletteCoverageStrategy[] = COVERAGE_STRATEGIES.map((c) => c.id);
 
+// Reference wheel: American, matching the app's default variant — works for staking
+// systems and the "both"-variant coverage strategies. The three classic wheel-neighbor
+// bets (Voisins, Tiers, Orphelins) only exist on a single-zero wheel, so those three
+// are always evaluated on European regardless of this default.
+const REFERENCE_VARIANT: RouletteSimConfig['variant'] = 'american';
+
 function stakingConfig(strategy: RouletteStrategy): RouletteSimConfig {
   return {
-    variant: 'european',
+    variant: REFERENCE_VARIANT,
     startingBankroll: REFERENCE_BANKROLL,
     baseUnit: REFERENCE_UNIT,
     betMode: 'single',
@@ -29,8 +35,9 @@ function stakingConfig(strategy: RouletteStrategy): RouletteSimConfig {
 }
 
 function coverageConfig(coverageStrategyId: RouletteCoverageStrategy): RouletteSimConfig {
+  const def = getCoverageStrategy(coverageStrategyId);
   return {
-    variant: 'european',
+    variant: def.variant === 'both' ? REFERENCE_VARIANT : def.variant,
     startingBankroll: REFERENCE_BANKROLL,
     baseUnit: REFERENCE_UNIT,
     betMode: 'coverage',
@@ -47,6 +54,7 @@ interface GuideRow {
   id: string;
   label: string;
   mode: 'staking' | 'coverage';
+  wheel: 'american' | 'european';
   summary: RouletteSimSummary;
 }
 
@@ -60,14 +68,19 @@ export default function GuideTab() {
           id,
           label: getStrategyMeta(id).label,
           mode: 'staking' as const,
+          wheel: REFERENCE_VARIANT,
           summary: runMonteCarlo(stakingConfig(id), REFERENCE_TRIALS),
         })),
-        ...COVERAGE_IDS.map((id) => ({
-          id,
-          label: COVERAGE_STRATEGIES.find((c) => c.id === id)!.label,
-          mode: 'coverage' as const,
-          summary: runMonteCarlo(coverageConfig(id), REFERENCE_TRIALS),
-        })),
+        ...COVERAGE_IDS.map((id) => {
+          const config = coverageConfig(id);
+          return {
+            id,
+            label: COVERAGE_STRATEGIES.find((c) => c.id === id)!.label,
+            mode: 'coverage' as const,
+            wheel: config.variant,
+            summary: runMonteCarlo(config, REFERENCE_TRIALS),
+          };
+        }),
       ];
       setRows(computed);
     }, 20);
@@ -82,8 +95,10 @@ export default function GuideTab() {
           Every strategy in this guide, compared on the same terms, so you can pick one before heading to the
           Simulator to explore it further. Numbers below come from {REFERENCE_TRIALS.toLocaleString()} simulated
           sessions of {REFERENCE_SPINS} spins each, starting with a ${REFERENCE_BANKROLL} bankroll and a $
-          {REFERENCE_UNIT} base unit on the European wheel — the same reference conditions for every strategy, so
-          the comparison is apples-to-apples. Your own results in the Simulator will vary with your own settings.
+          {REFERENCE_UNIT} base unit — the same reference conditions for every strategy, so the comparison is
+          apples-to-apples. Everything runs on the American wheel (this app's default) except Voisins du Zero,
+          Tiers du Cylindre, and Orphelins, which only exist on the European wheel and are shown on it. Your own
+          results in the Simulator will vary with your own settings and chosen variant.
         </p>
       </section>
 
@@ -158,6 +173,7 @@ export default function GuideTab() {
                 <tr>
                   <th>Strategy</th>
                   <th>Bet mode</th>
+                  <th>Wheel</th>
                   <th>Win %</th>
                   <th>Avg ending bankroll</th>
                   <th>Expected bankroll</th>
@@ -171,6 +187,7 @@ export default function GuideTab() {
                   <tr key={r.id}>
                     <td>{r.label}</td>
                     <td>{r.mode === 'staking' ? 'Staking system' : 'Number coverage'}</td>
+                    <td>{r.wheel === 'american' ? 'American' : 'European'}</td>
                     <td>{r.summary.profitablePct.toFixed(1)}%</td>
                     <td>${r.summary.averageFinal.toFixed(0)}</td>
                     <td>${r.summary.theoreticalExpectedBankroll.toFixed(0)}</td>

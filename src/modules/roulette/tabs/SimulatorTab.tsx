@@ -76,7 +76,7 @@ function BankrollTooltip({ active, payload, label }: { active?: boolean; payload
 }
 
 export default function SimulatorTab() {
-  const [variant, setVariant] = useState<RouletteVariant>('european');
+  const [variant, setVariant] = useState<RouletteVariant>('american');
   const [startingBankroll, setStartingBankroll] = useState(500);
   const [baseUnit, setBaseUnit] = useState(5);
   const [tableMax, setTableMax] = useState(500);
@@ -157,6 +157,22 @@ export default function SimulatorTab() {
   const compatible = betMode === 'coverage' || strategy === 'james-bond' || isBetCompatible(strategy, betType);
   const canRun = errors.length === 0 && compatible;
 
+  function applyBeginnerDefaults() {
+    setVariant('american');
+    setBetMode('single');
+    setStrategy('flat');
+    setBetType('red');
+    setStartingBankroll(500);
+    setBaseUnit(5);
+    setTableMax(500);
+    setMaxSpins(200);
+    setUseStopLoss(true);
+    setStopLoss(100);
+    setUseStopWin(true);
+    setStopWin(900);
+    setMcRuns(0);
+  }
+
   function buildConfig(): RouletteSimConfig {
     const parsedLabouchere = labouchereStart.split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n) && n > 0);
     return {
@@ -235,15 +251,29 @@ export default function SimulatorTab() {
         <p className="fine-print">{HOUSE_EDGE_DISCLAIMER}</p>
       </section>
 
+      <section className="panel beginner-callout">
+        <h3>New here? Start with the simplest possible bet</h3>
+        <p>
+          A color bet is the easiest bet in roulette to understand: pick Red or Black. If the ball lands on your
+          color, you roughly double your money (win back your stake plus an equal amount in profit); if it lands on
+          the other color or on a green zero, you lose your stake. Nothing else to track — no sequences, no
+          multiple chips. The button below sets up exactly that, with cautious bankroll and stop settings, so you
+          can just click "Run simulation" and see what happens.
+        </p>
+        <button type="button" className="run-button" onClick={applyBeginnerDefaults}>
+          Set beginner-friendly defaults
+        </button>
+      </section>
+
       <section className="panel controls-panel">
         <div className="control-group">
           <span>Variant</span>
           <div className="button-row">
-            <button className={variant === 'european' ? 'active' : ''} onClick={() => setVariant('european')}>
-              European
-            </button>
             <button className={variant === 'american' ? 'active' : ''} onClick={() => setVariant('american')}>
               American
+            </button>
+            <button className={variant === 'european' ? 'active' : ''} onClick={() => setVariant('european')}>
+              European
             </button>
           </div>
         </div>
@@ -603,6 +633,14 @@ export default function SimulatorTab() {
             <div className="bet-placement-note">
               <strong>Exactly where to place this bet:</strong> {placementDescription(betType, betParams)}
             </div>
+            <div className="bet-mechanics-note">
+              <strong>How this bet works:</strong> The wheel has {wheelSize(variant)} numbered pockets. This bet
+              covers {tableSelection.numbers.length} of them — a {(selectionHitProbability * 100).toFixed(1)}%
+              chance on every spin. If the ball lands on any of your covered numbers, you win: the house pays{' '}
+              {selectionWinRatio}:{selectionStakeRatio} in profit (${impliedWin.toFixed(2)} on a ${baseUnit.toFixed(2)}{' '}
+              bet) and hands back your original stake too, for ${(impliedWin + baseUnit).toFixed(2)} total. If it
+              lands anywhere else, you lose the full ${baseUnit.toFixed(2)} stake — nothing is returned.
+            </div>
           </section>
         )}
 
@@ -630,6 +668,16 @@ export default function SimulatorTab() {
                   </li>
                 ))}
               </ul>
+            </div>
+            <div className="bet-mechanics-note">
+              <strong>How this spread works:</strong> All {coverageDef.legs.length} legs above are placed at once,
+              every single spin, for a combined ${coverageWagerPerSpin.toFixed(2)} total stake. When the ball lands
+              on a number covered by one of those legs, that leg wins its own odds and returns its own stake — but
+              every other leg's stake is still lost, because only the numbers within a given leg pay out on it.
+              Land on a number outside all {coverageOutcome.numbersCovered} covered numbers, and the entire $
+              {coverageWagerPerSpin.toFixed(2)} is lost. Which leg hits determines your profit: on average that's +$
+              {coverageOutcome.averageProfitIfHit.toFixed(2)}, with the best-paying leg worth +$
+              {coverageOutcome.bestCaseProfit.toFixed(2)}.
             </div>
           </section>
         )}

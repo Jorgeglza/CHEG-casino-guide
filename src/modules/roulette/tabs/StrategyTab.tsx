@@ -7,7 +7,7 @@ import type { RouletteStrategy, RouletteVariant } from '../types/roulette';
 
 export default function StrategyTab() {
   const [expanded, setExpanded] = useState<RouletteStrategy | null>('flat');
-  const [coverageVariant, setCoverageVariant] = useState<RouletteVariant>('european');
+  const [coverageVariant, setCoverageVariant] = useState<RouletteVariant>('american');
 
   return (
     <div className="tab-content strategy-tab">
@@ -52,11 +52,11 @@ export default function StrategyTab() {
         <div className="control-group">
           <span>Variant</span>
           <div className="button-row">
-            <button className={coverageVariant === 'european' ? 'active' : ''} onClick={() => setCoverageVariant('european')}>
-              European
-            </button>
             <button className={coverageVariant === 'american' ? 'active' : ''} onClick={() => setCoverageVariant('american')}>
               American
+            </button>
+            <button className={coverageVariant === 'european' ? 'active' : ''} onClick={() => setCoverageVariant('european')}>
+              European
             </button>
           </div>
         </div>
