@@ -131,6 +131,9 @@ export function getBasicStrategyAction(hand: StrategyHandInput, dealerUpcard: De
 
   if (hand.type === 'soft') {
     const total = hand.total ?? 13;
+    // Soft 21+ only arises from hitting past soft 20 (e.g. A,2,8) — always stand, and it's
+    // outside the printed chart's 13-20 range so there's no row to look up.
+    if (total >= 21) return { action: 'stand', abbreviation: 'S' };
     const row = SOFT_TOTALS[total] ?? SOFT_TOTALS[13];
     let base = row[col];
     if (h17) {

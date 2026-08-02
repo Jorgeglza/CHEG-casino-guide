@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import StrategyTab from './tabs/StrategyTab';
+import SimulatorTab from './tabs/SimulatorTab';
 import HandTrainerTab from './tabs/HandTrainerTab';
 import RulesTab from './tabs/RulesTab';
 import BetReferenceTab from './tabs/BetReferenceTab';
 
-const TAB_IDS = ['strategy', 'trainer', 'rules', 'reference'] as const;
+const TAB_IDS = ['strategy', 'simulator', 'trainer', 'rules', 'reference'] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 const TAB_LABELS: Record<TabId, string> = {
   strategy: 'Strategy',
+  simulator: 'Monte Carlo Simulator',
   trainer: 'Hand Trainer',
   rules: 'Rules',
   reference: 'Bet Reference',
@@ -31,6 +33,7 @@ export default function BlackjackModule() {
         ))}
       </nav>
       {activeTab === 'strategy' && <StrategyTab />}
+      {activeTab === 'simulator' && <SimulatorTab />}
       {activeTab === 'trainer' && <HandTrainerTab />}
       {activeTab === 'rules' && <RulesTab />}
       {activeTab === 'reference' && <BetReferenceTab />}

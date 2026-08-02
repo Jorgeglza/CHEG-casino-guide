@@ -2027,6 +2027,18 @@ h3,
   border-color: #c0392b;
 }
 
+.outcome-cell--win {
+  color: #3d9970;
+}
+
+.outcome-cell--loss {
+  color: #e07360;
+}
+
+.outcome-cell--push {
+  color: var(--text-dim);
+}
+
 @media (max-width: 640px) {
   .strategy-chart-legend-grid {
     grid-template-columns: 1fr;
