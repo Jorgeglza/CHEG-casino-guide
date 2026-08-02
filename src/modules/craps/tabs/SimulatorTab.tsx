@@ -19,6 +19,85 @@ import InfoTip from '../components/InfoTip';
 
 const ODDS_OPTIONS = [0, 1, 2, 3, 5, 10];
 
+const OUTCOME_COLOR: Record<'win' | 'lose' | 'neutral', string> = {
+  win: '#3d9970',
+  lose: '#c0392b',
+  neutral: '#8d99ae',
+};
+
+const BANKROLL_SERIES: { key: 'p95' | 'p75' | 'p50' | 'p25' | 'p5'; label: string; color: string; opacity: number }[] = [
+  { key: 'p95', label: '95th pct', color: '#3d9970', opacity: 0.5 },
+  { key: 'p75', label: '75th pct', color: '#3d9970', opacity: 1 },
+  { key: 'p50', label: 'Median', color: '#f4d35e', opacity: 1 },
+  { key: 'p25', label: '25th pct', color: '#c0392b', opacity: 1 },
+  { key: 'p5', label: '5th pct', color: '#c0392b', opacity: 0.5 },
+];
+
+function BankrollLegend() {
+  return (
+    <ul className="dice-roll-tooltip-legend">
+      {BANKROLL_SERIES.map((s) => (
+        <li key={s.key}>
+          <span className="legend-swatch" style={{ background: s.color, opacity: s.opacity }} />
+          {s.label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function BankrollTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { payload: SimSummary['trajectoryPercentiles'][number] }[];
+  label?: number;
+}) {
+  if (!active || !payload || !payload.length) return null;
+  const row = payload[0].payload;
+
+  return (
+    <div className="dice-roll-tooltip">
+      <strong>Roll {label}</strong>
+      <ul>
+        {BANKROLL_SERIES.map((s) => (
+          <li key={s.key}>
+            <span className="legend-swatch" style={{ background: s.color, opacity: s.opacity }} />
+            {s.label}
+            <span className="dice-roll-tooltip-count">${Number(row[s.key]).toFixed(0)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function DiceRollTooltip({ active, payload }: { active?: boolean; payload?: { payload: SimSummary['rollDistribution'][number] }[] }) {
+  if (!active || !payload || !payload.length) return null;
+  const entry = payload[0].payload;
+  const totalRolls = entry.win + entry.lose + entry.neutral;
+
+  return (
+    <div className="dice-roll-tooltip">
+      <strong>Roll total: {entry.total}</strong>
+      <span className="dice-roll-tooltip-total">{totalRolls.toLocaleString()} rolls</span>
+      <ul>
+        {entry.stages.map((s) => (
+          <li key={s.key}>
+            <span className="legend-swatch" style={{ background: OUTCOME_COLOR[s.outcome] }} />
+            {s.label}
+            <span className="dice-roll-tooltip-count">
+              {s.count.toLocaleString()} ({((s.count / totalRolls) * 100).toFixed(1)}%)
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function SimulatorTab() {
   const [startingBankroll, setStartingBankroll] = useState(500);
   const [betSize, setBetSize] = useState(15);
@@ -162,24 +241,6 @@ export default function SimulatorTab() {
             </span>
           </section>
 
-          <section className="panel kpi-panel">
-            <div className="kpi kpi-positive">
-              <span className="kpi-label">Positive</span>
-              <span className="kpi-value">{result.positiveCount.toLocaleString()}</span>
-              <span className="kpi-sub">{result.positivePct.toFixed(1)}% of trials above starting bankroll</span>
-            </div>
-            <div className="kpi kpi-neutral">
-              <span className="kpi-label">Neutral</span>
-              <span className="kpi-value">{result.neutralCount.toLocaleString()}</span>
-              <span className="kpi-sub">{result.neutralPct.toFixed(1)}% of trials at starting bankroll</span>
-            </div>
-            <div className="kpi kpi-negative">
-              <span className="kpi-label">Negative</span>
-              <span className="kpi-value">{result.negativeCount.toLocaleString()}</span>
-              <span className="kpi-sub">{result.negativePct.toFixed(1)}% of trials below starting bankroll</span>
-            </div>
-          </section>
-
           <section className="panel stats-panel">
             <div className="stat">
               <span className="stat-label">Win rate</span>
@@ -209,13 +270,13 @@ export default function SimulatorTab() {
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                 <XAxis dataKey="roll" tick={{ fontSize: 11 }} label={{ value: 'Roll #', position: 'insideBottom', offset: -4, fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => `$${Number(v).toFixed(0)}`} labelFormatter={(l) => `Roll ${l}`} />
-                <Legend />
+                <Tooltip content={<BankrollTooltip />} />
+                <Legend content={<BankrollLegend />} />
+                <Line type="monotone" dataKey="p95" name="95th pct" stroke="#3d9970" strokeOpacity={0.5} strokeWidth={1} strokeDasharray="4 3" dot={false} />
                 <Area type="monotone" dataKey="p75" name="75th pct" stroke="#3d9970" fill="#3d997022" strokeWidth={1} />
-                <Area type="monotone" dataKey="p25" name="25th pct" stroke="#c0392b" fill="#c0392b22" strokeWidth={1} />
-                <Line type="monotone" dataKey="p95" name="95th pct" stroke="#3d9970" strokeWidth={1} strokeDasharray="4 3" dot={false} />
-                <Line type="monotone" dataKey="p5" name="5th pct" stroke="#c0392b" strokeWidth={1} strokeDasharray="4 3" dot={false} />
                 <Line type="monotone" dataKey="p50" name="Median" stroke="#f4d35e" strokeWidth={2} dot={false} />
+                <Area type="monotone" dataKey="p25" name="25th pct" stroke="#c0392b" fill="#c0392b22" strokeWidth={1} />
+                <Line type="monotone" dataKey="p5" name="5th pct" stroke="#c0392b" strokeOpacity={0.5} strokeWidth={1} strokeDasharray="4 3" dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           </section>
@@ -227,6 +288,17 @@ export default function SimulatorTab() {
               &nbsp;&nbsp;
               <span className="legend-swatch legend-swatch-lose" /> ending below starting bankroll
             </p>
+            <div className="kpi-row-mini">
+              <span className="kpi-mini kpi-mini-positive">
+                {result.positiveCount.toLocaleString()} positive ({result.positivePct.toFixed(1)}%)
+              </span>
+              <span className="kpi-mini kpi-mini-neutral">
+                {result.neutralCount.toLocaleString()} neutral ({result.neutralPct.toFixed(1)}%)
+              </span>
+              <span className="kpi-mini kpi-mini-negative">
+                {result.negativeCount.toLocaleString()} negative ({result.negativePct.toFixed(1)}%)
+              </span>
+            </div>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={result.histogram}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
@@ -246,7 +318,7 @@ export default function SimulatorTab() {
             <h3>Dice roll distribution</h3>
             <p className="chart-note">
               Every roll across all trials, broken down by whether it moved the bankroll up, down, or left it
-              unchanged at that point in the game.
+              unchanged at that point in the game. Hover a bar for the breakdown by game stage.
               <br />
               <span className="legend-swatch legend-swatch-win" /> winning roll&nbsp;&nbsp;
               <span className="legend-swatch legend-swatch-lose" /> losing roll&nbsp;&nbsp;
@@ -261,7 +333,7 @@ export default function SimulatorTab() {
                   label={{ value: 'Dice total', position: 'insideBottom', offset: -4, fontSize: 11 }}
                 />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
+                <Tooltip content={<DiceRollTooltip />} />
                 <Legend />
                 <Bar dataKey="win" name="Winning roll" stackId="rolls" fill="#3d9970" />
                 <Bar dataKey="neutral" name="No change" stackId="rolls" fill="#8d99ae" />

@@ -17,7 +17,27 @@ export interface TrialResult {
 }
 
 export type RollOutcome = 'win' | 'lose' | 'neutral';
-export type RollTally = Record<number, { win: number; lose: number; neutral: number }>;
+
+export type RollStageKey =
+  | 'naturalWin'
+  | 'crapsLoss'
+  | 'pointEstablished'
+  | 'pointMade'
+  | 'sevenOut'
+  | 'placeWin'
+  | 'noAction';
+
+export const ROLL_STAGES: Record<RollStageKey, { label: string; outcome: RollOutcome }> = {
+  naturalWin: { label: 'Natural (7 or 11 on come-out)', outcome: 'win' },
+  crapsLoss: { label: 'Craps (2, 3, or 12 on come-out)', outcome: 'lose' },
+  pointEstablished: { label: 'Point established (come-out)', outcome: 'neutral' },
+  pointMade: { label: 'Point made (hit the point)', outcome: 'win' },
+  sevenOut: { label: 'Seven-out', outcome: 'lose' },
+  placeWin: { label: 'Place bet win', outcome: 'win' },
+  noAction: { label: 'Point working, no bet resolved', outcome: 'neutral' },
+};
+
+export type RollTally = Record<number, Record<RollStageKey, number>>;
 
 function simulateTrial(config: SimConfig, rollTally: RollTally): TrialResult {
   const { startingBankroll, betSize, oddsMultiple, maxRolls } = config;
@@ -38,18 +58,21 @@ function simulateTrial(config: SimConfig, rollTally: RollTally): TrialResult {
 
     const roll = rollDice();
     const total = roll.total;
-    const before = bankroll;
+    let stage: RollStageKey;
 
     if (point === null) {
       if (total === 7 || total === 11) {
         bankroll += betSize;
+        stage = 'naturalWin';
       } else if (total === 2 || total === 3 || total === 12) {
         bankroll -= betSize;
+        stage = 'crapsLoss';
       } else {
         point = total as Point;
         const desiredOdds = betSize * oddsMultiple;
         oddsBet = Math.min(desiredOdds, Math.max(bankroll, 0));
         activePlaceNumbers = strategy.placeNumbers.filter((n) => n !== point && bankroll >= betSize);
+        stage = 'pointEstablished';
       }
     } else {
       if (total === point) {
@@ -57,23 +80,25 @@ function simulateTrial(config: SimConfig, rollTally: RollTally): TrialResult {
         point = null;
         oddsBet = 0;
         activePlaceNumbers = [];
+        stage = 'pointMade';
       } else if (total === 7) {
         bankroll -= betSize + oddsBet + activePlaceNumbers.length * betSize;
         point = null;
         oddsBet = 0;
         activePlaceNumbers = [];
+        stage = 'sevenOut';
       } else if (activePlaceNumbers.includes(total as Point)) {
         bankroll += placeWinAmount(total as Point, betSize);
+        stage = 'placeWin';
+      } else {
+        stage = 'noAction';
       }
-      // any other roll: point still working, no bankroll change
     }
 
     // a player can never lose more than they've wagered
     bankroll = Math.max(0, bankroll);
 
-    const outcome: RollOutcome = bankroll > before ? 'win' : bankroll < before ? 'lose' : 'neutral';
-    const tally = rollTally[total];
-    tally[outcome]++;
+    rollTally[total][stage]++;
 
     trajectory.push(bankroll);
   }
@@ -85,7 +110,13 @@ export interface SimSummary {
   trajectoryPercentiles: { roll: number; p5: number; p25: number; p50: number; p75: number; p95: number }[];
   finalBankrolls: number[];
   histogram: { bucket: string; bucketStart: number; count: number; winning: boolean }[];
-  rollDistribution: { total: number; win: number; lose: number; neutral: number }[];
+  rollDistribution: {
+    total: number;
+    win: number;
+    lose: number;
+    neutral: number;
+    stages: { key: RollStageKey; label: string; outcome: RollOutcome; count: number }[];
+  }[];
   winRate: number; // % of trials ending above starting bankroll
   riskOfRuin: number; // % of trials that hit zero
   averageFinal: number;
@@ -106,7 +137,7 @@ function percentile(sorted: number[], p: number): number {
 export function runMonteCarlo(config: SimConfig): SimSummary {
   const rollTally: RollTally = {};
   for (let total = 2; total <= 12; total++) {
-    rollTally[total] = { win: 0, lose: 0, neutral: 0 };
+    rollTally[total] = { naturalWin: 0, crapsLoss: 0, pointEstablished: 0, pointMade: 0, sevenOut: 0, placeWin: 0, noAction: 0 };
   }
 
   const trials: TrialResult[] = [];
@@ -160,7 +191,16 @@ export function runMonteCarlo(config: SimConfig): SimSummary {
   });
 
   const rollDistribution = Object.entries(rollTally)
-    .map(([total, tally]) => ({ total: Number(total), ...tally }))
+    .map(([total, tally]) => {
+      const stages = (Object.keys(tally) as RollStageKey[])
+        .filter((key) => tally[key] > 0)
+        .map((key) => ({ key, label: ROLL_STAGES[key].label, outcome: ROLL_STAGES[key].outcome, count: tally[key] }))
+        .sort((a, b) => b.count - a.count);
+      const win = stages.filter((s) => s.outcome === 'win').reduce((a, s) => a + s.count, 0);
+      const lose = stages.filter((s) => s.outcome === 'lose').reduce((a, s) => a + s.count, 0);
+      const neutral = stages.filter((s) => s.outcome === 'neutral').reduce((a, s) => a + s.count, 0);
+      return { total: Number(total), win, lose, neutral, stages };
+    })
     .sort((a, b) => a.total - b.total);
 
   return {

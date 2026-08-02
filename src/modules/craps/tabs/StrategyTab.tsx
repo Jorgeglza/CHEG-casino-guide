@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import StrategyBoard from '../components/StrategyBoard';
 import EdgeBadge from '../components/EdgeBadge';
 import { combinedHouseEdge, type Point } from '../engine/bets';
@@ -6,6 +6,20 @@ import { PLACE_EDGE_BY_NUMBER, pointRepeatProbability } from '../engine/probabil
 
 const POINTS: Point[] = [4, 5, 6, 8, 9, 10];
 const ODDS_OPTIONS = [0, 1, 2, 3, 5, 10];
+const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+
+type ComboOutcome = 'win' | 'lose' | 'neutral';
+
+function classifyCombo(mode: 'before' | 'after', point: Point, total: number): ComboOutcome {
+  if (mode === 'before') {
+    if (total === 7 || total === 11) return 'win';
+    if (total === 2 || total === 3 || total === 12) return 'lose';
+    return 'neutral';
+  }
+  if (total === point) return 'win';
+  if (total === 7) return 'lose';
+  return 'neutral';
+}
 
 export default function StrategyTab() {
   const [mode, setMode] = useState<'before' | 'after'>('before');
@@ -14,6 +28,13 @@ export default function StrategyTab() {
 
   const edge = combinedHouseEdge(oddsMultiple);
   const bestPlaceNumbers = [...POINTS].sort((a, b) => PLACE_EDGE_BY_NUMBER[a] - PLACE_EDGE_BY_NUMBER[b]);
+
+  const comboCounts = { win: 0, lose: 0, neutral: 0 };
+  for (let d1 = 1; d1 <= 6; d1++) {
+    for (let d2 = 1; d2 <= 6; d2++) {
+      comboCounts[classifyCombo(mode, point, d1 + d2)]++;
+    }
+  }
 
   return (
     <div className="tab-content strategy-tab">
@@ -71,6 +92,51 @@ export default function StrategyTab() {
           {mode === 'before'
             ? 'Every number and bet on the board is annotated with the probability of that outcome on the come-out roll, and the house edge you’d be facing if you had money on it.'
             : `With ${point} as the point, each place number shows the probability it repeats before a 7, and the edge you'd face betting it that way. The active point is highlighted.`}
+        </p>
+      </section>
+
+      <section className="panel dice-combos-panel">
+        <h3>
+          {mode === 'before'
+            ? 'Dice combinations — come-out roll'
+            : `Dice combinations — point is ${point}`}
+        </h3>
+        <p className="chart-note">
+          All 36 possible dice combinations for {mode === 'before' ? 'the come-out roll' : `a point of ${point}`},
+          colored by what they'd do to your Pass Line{mode === 'after' ? ' + Odds' : ''} bet right now.
+          <br />
+          <span className="legend-swatch legend-swatch-win" /> winning roll&nbsp;&nbsp;
+          <span className="legend-swatch legend-swatch-lose" /> losing roll&nbsp;&nbsp;
+          <span className="legend-swatch legend-swatch-neutral" /> {mode === 'before' ? 'sets a point' : 'point still working'}
+        </p>
+        <div className="dice-combo-grid">
+          <div className="dice-combo-corner" />
+          {[1, 2, 3, 4, 5, 6].map((d2) => (
+            <div key={`col-${d2}`} className="dice-combo-header">
+              {DICE_FACES[d2 - 1]}
+            </div>
+          ))}
+          {[1, 2, 3, 4, 5, 6].map((d1) => (
+            <Fragment key={`row-${d1}`}>
+              <div className="dice-combo-header">{DICE_FACES[d1 - 1]}</div>
+              {[1, 2, 3, 4, 5, 6].map((d2) => {
+                const total = d1 + d2;
+                const outcome = classifyCombo(mode, point, total);
+                return (
+                  <div key={`cell-${d1}-${d2}`} className={`dice-combo-cell dice-combo-${outcome}`}>
+                    {total}
+                  </div>
+                );
+              })}
+            </Fragment>
+          ))}
+        </div>
+        <p className="dice-combo-summary">
+          <strong>{comboCounts.win}/36</strong> win ({((comboCounts.win / 36) * 100).toFixed(1)}%) ·{' '}
+          <strong>{comboCounts.lose}/36</strong> lose ({((comboCounts.lose / 36) * 100).toFixed(1)}%) ·{' '}
+          <strong>{comboCounts.neutral}/36</strong>{' '}
+          {mode === 'before' ? 'set a point' : 'still working'} (
+          {((comboCounts.neutral / 36) * 100).toFixed(1)}%)
         </p>
       </section>
 
