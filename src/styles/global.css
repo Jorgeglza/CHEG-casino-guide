@@ -1,11 +1,15 @@
 :root {
-  --bg: #0a0f0d;
-  --bg-panel: #121a17;
-  --border: #24322d;
-  --text: #eef1ef;
-  --text-dim: #a7b5ae;
-  --accent: #f4d35e;
-  --accent-2: #1f9d55;
+  --bg: #0d1117;
+  --bg-panel: #111827;
+  --border: #374151;
+  --text: #ffffff;
+  --text-dim: #9ca3af;
+  --accent: #d4af37;
+  --accent-light: #f7c948;
+  --accent-2: #3b82f6;
+  --success: #1f9d55;
+  --font-heading: 'Cinzel', 'Trajan Pro', serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
   color-scheme: dark;
 }
 
@@ -17,7 +21,14 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+.brand-wordmark {
+  font-family: var(--font-heading);
 }
 
 .app-shell {
@@ -34,10 +45,28 @@ body {
   z-index: 10;
 }
 
-.app-header h1 {
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin: 0 0 14px;
-  font-size: 1.6rem;
-  letter-spacing: 0.5px;
+}
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.brand-wordmark {
+  font-size: 1.3rem;
+  letter-spacing: 1.5px;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.brand-wordmark .brand-accent {
+  color: var(--accent);
 }
 
 .module-nav {
@@ -61,7 +90,7 @@ body {
 
 .module-button.active {
   color: var(--bg);
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent-light), var(--accent));
   border-color: var(--accent);
   font-weight: 600;
 }
@@ -223,7 +252,7 @@ body {
 
 .stepper-controls > button.primary {
   background: var(--accent);
-  color: #1a1a1a;
+  color: #0d1117;
   border-color: var(--accent);
   font-weight: 700;
 }
@@ -322,10 +351,10 @@ body {
 }
 
 .flow-node--win {
-  border-color: var(--accent-2);
+  border-color: var(--success);
 }
 .flow-node--win .flow-node-label {
-  color: var(--accent-2);
+  color: var(--success);
 }
 
 .flow-node--lose {
@@ -344,7 +373,7 @@ body {
 
 .flow-node--active {
   transform: scale(1.06);
-  box-shadow: 0 0 0 2px var(--accent), 0 0 16px rgba(244, 211, 94, 0.35);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 16px rgba(212, 175, 55, 0.35);
 }
 
 /* Bet sizing */
@@ -367,7 +396,7 @@ body {
 
 .bet-sizing-row--active {
   border-color: var(--accent);
-  background: rgba(244, 211, 94, 0.06);
+  background: rgba(212, 175, 55, 0.06);
 }
 
 .bet-sizing-label {
@@ -561,7 +590,7 @@ body {
 
 .run-button {
   background: var(--accent);
-  color: #1a1a1a;
+  color: #0d1117;
   border: none;
   padding: 10px 20px;
   border-radius: 8px;
@@ -732,7 +761,7 @@ body {
 
 .cta-panel .primary {
   background: var(--accent);
-  color: #1a1a1a;
+  color: #0d1117;
   border: none;
   padding: 10px 20px;
   border-radius: 8px;
@@ -805,7 +834,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   width: 240px;
-  background: #1a2420;
+  background: #161e2b;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;
@@ -871,7 +900,7 @@ body {
 
 .strategy-option.active {
   border-color: var(--accent);
-  background: rgba(244, 211, 94, 0.08);
+  background: rgba(212, 175, 55, 0.08);
 }
 
 .strategy-option.active strong {

@@ -22,7 +22,12 @@ function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <h1>CHEG Casino Guide</h1>
+        <div className="brand">
+          <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="brand-logo" />
+          <span className="brand-wordmark">
+            CHEG <span className="brand-accent">Casino Guide</span>
+          </span>
+        </div>
         <nav className="module-nav">
           {MODULES.map((m) => (
             <button
