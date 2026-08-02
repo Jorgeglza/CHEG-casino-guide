@@ -1623,6 +1623,104 @@ h3,
   color: #e07360;
 }
 
+.bet-placement-note {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.bet-placement-note strong {
+  color: var(--text);
+}
+
+.bet-placement-note ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Strategy Guide tab */
+.bet-mode-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.bet-mode-compare-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 16px;
+}
+
+.bet-mode-compare-card h4 {
+  margin: 0 0 6px;
+  color: var(--accent);
+}
+
+.pros-cons-mini {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.pros-cons-mini h5 {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+}
+
+.pros-cons-mini ul {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.guide-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.guide-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guide-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.guide-card-header strong {
+  font-size: 0.92rem;
+}
+
 @media (max-width: 640px) {
   .roulette-table-grid {
     min-width: 300px;
@@ -1634,6 +1732,9 @@ h3,
     flex-wrap: wrap;
   }
   .coverage-strategy-header {
+    flex-wrap: wrap;
+  }
+  .guide-card-header {
     flex-wrap: wrap;
   }
 }

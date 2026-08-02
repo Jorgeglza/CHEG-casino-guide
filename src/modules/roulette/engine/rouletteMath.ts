@@ -205,6 +205,61 @@ function houseEdgeOfBasket(): number {
   return (1 - probability * (1 + win / stake)) * 100;
 }
 
+// Exact physical chip-placement instructions for the live selection currently on the
+// table — distinct from data/rouletteBets.ts's static reference examples, this reflects
+// the actual number(s)/index the player picked, not a fixed illustrative sample.
+export function placementDescription(type: RouletteBetType, params?: BetParams): string {
+  switch (type) {
+    case 'straight':
+      return `Place your chip directly on the number ${params?.numbers?.[0] ?? '?'}.`;
+    case 'split':
+      return `Place your chip on the line shared by ${params?.numbers?.[0] ?? '?'} and ${params?.numbers?.[1] ?? '?'}.`;
+    case 'trio':
+      return `Place your chip on the corner shared by ${(params?.numbers ?? []).join(', ')}.`;
+    case 'basket':
+      return 'Place your chip on the outer corner shared by 0, 00, 1, 2, and 3.';
+    case 'street': {
+      const s = params?.rowStart;
+      return s ? `Place your chip on the outer edge of the ${s}-${s + 1}-${s + 2} row.` : 'Place your chip on the outer edge of the row.';
+    }
+    case 'corner': {
+      const tl = params?.cornerTopLeft;
+      return tl
+        ? `Place your chip on the corner shared by ${tl}, ${tl + 1}, ${tl + 3}, and ${tl + 4}.`
+        : 'Place your chip on the shared corner of the four numbers.';
+    }
+    case 'six-line': {
+      const s = params?.rowStart;
+      return s
+        ? `Place your chip on the outer edge shared by the ${s}-${s + 2} and ${s + 3}-${s + 5} rows.`
+        : 'Place your chip on the outer edge shared by the two rows.';
+    }
+    case 'dozen': {
+      const idx = params?.dozenIndex ?? 1;
+      const label = idx === 1 ? '1st 12' : idx === 2 ? '2nd 12' : '3rd 12';
+      return `Place your chip in the "${label}" box beneath the number grid.`;
+    }
+    case 'column': {
+      const idx = params?.columnIndex ?? 1;
+      return `Place your chip in the "2 to 1" box at the foot of column ${idx}.`;
+    }
+    case 'red':
+      return 'Place your chip in the red diamond-marked box below the number grid.';
+    case 'black':
+      return 'Place your chip in the black diamond-marked box below the number grid.';
+    case 'odd':
+      return 'Place your chip in the box marked "ODD" below the number grid.';
+    case 'even':
+      return 'Place your chip in the box marked "EVEN" below the number grid.';
+    case 'low':
+      return 'Place your chip in the box marked "1-18" below the number grid.';
+    case 'high':
+      return 'Place your chip in the box marked "19-36" below the number grid.';
+    default:
+      return '';
+  }
+}
+
 export function buildBetPayoutInfo(type: RouletteBetType, label: string, description: string, examplePlacement: string, category: 'inside' | 'outside', sampleParams: BetParams, americanOnly?: boolean): BetPayoutInfo {
   return {
     type,

@@ -1,4 +1,4 @@
-import type { ComplexityLevel, RiskLevel, RouletteStrategy, StrategyCategory } from '../types/roulette';
+import type { ComplexityLevel, RiskLevel, RouletteCoverageStrategy, RouletteStrategy, StrategyCategory } from '../types/roulette';
 
 export interface StrategyMeta {
   id: RouletteStrategy;
@@ -235,6 +235,100 @@ export const STRATEGY_META: StrategyMeta[] = [
 
 export function getStrategyMeta(id: RouletteStrategy): StrategyMeta {
   return STRATEGY_META.find((s) => s.id === id) ?? STRATEGY_META[0];
+}
+
+export interface CoverageGuideMeta {
+  id: RouletteCoverageStrategy;
+  complexity: ComplexityLevel;
+  advantages: string[];
+  limitations: string[];
+  bestUseCase: string;
+}
+
+export const COVERAGE_GUIDE_META: CoverageGuideMeta[] = [
+  {
+    id: 'two-dozens',
+    complexity: 'low',
+    advantages: [
+      'Simplest coverage strategy on this page — two outside-bet chips, no inside-bet placement to get right.',
+      'Wins nearly two-thirds of spins (24/37), so losing streaks are short and easy to sit through.',
+    ],
+    limitations: [
+      'A miss still loses both chips at once — the "wins often" framing hides that losses are total, not partial.',
+      "Doesn't diversify beyond the two dozens you pick — the whole uncovered third plus zero is a live loss zone.",
+    ],
+    bestUseCase: 'Players who want broad, easy-to-track coverage using only outside bets, no racetrack layout required.',
+  },
+  {
+    id: 'two-columns',
+    complexity: 'low',
+    advantages: [
+      'Identical math to Two Dozens — same coverage, same edge — just grouped by column for players who prefer that layout.',
+      'Easy to combine mentally with a dozen-based view of the table for a quick sanity check.',
+    ],
+    limitations: [
+      'No real advantage over Two Dozens beyond personal preference for how the numbers are grouped.',
+      'Still loses everything staked on a miss, like any two-group outside coverage.',
+    ],
+    bestUseCase: 'Players who find columns more intuitive than dozens, or who want to compare the two side by side.',
+  },
+  {
+    id: 'two-six-lines',
+    complexity: 'low',
+    advantages: [
+      'Better payout odds per hit (5:1) than an equivalent single dozen (2:1), for the same house edge.',
+      'Coverage can be scattered across the layout instead of one consecutive block, which some players prefer.',
+    ],
+    limitations: [
+      'Half the coverage of Two Dozens (12 vs 24 numbers), so it misses noticeably more often.',
+      'Requires placing two separate inside bets correctly rather than one outside-bet chip.',
+    ],
+    bestUseCase: 'Players who want inside-bet payout odds without going as narrow as a single number or split.',
+  },
+  {
+    id: 'voisins-du-zero',
+    complexity: 'moderate',
+    advantages: [
+      'Broadest single-card coverage here that still concentrates around a theme (the wheel neighborhood of zero).',
+      'A well-known, widely offered bet at live and French-style tables — dealers will know it by name.',
+    ],
+    limitations: [
+      'Requires a table with a racetrack layout (or a dealer willing to place it manually) — not available everywhere.',
+      'Nine separate chip placements to track — the most fiddly bet on this page to place correctly by hand.',
+      'European wheel only — the physical neighbor relationships don’t carry over to the American wheel.',
+    ],
+    bestUseCase: 'Players at a live European table who want the classic "cover the zero neighborhood" bet by name.',
+  },
+  {
+    id: 'tiers-du-cylindre',
+    complexity: 'moderate',
+    advantages: [
+      'All six chips are simple splits — easier to place correctly than Voisins’ mixed trio/corner/split shapes.',
+      'Covers the third of the wheel opposite zero, a useful complement if you’re also covering Voisins elsewhere.',
+    ],
+    limitations: [
+      'Narrower coverage than Voisins (12 vs 17 numbers) for a similar number of chips.',
+      'Still needs the wheel-order relationships of a European wheel — not portable to American tables.',
+    ],
+    bestUseCase: 'Players who want a simpler-to-place alternative to Voisins, or who are covering multiple wheel thirds at once.',
+  },
+  {
+    id: 'orphelins',
+    complexity: 'moderate',
+    advantages: [
+      'Fills in exactly what Voisins and Tiers leave out — the natural third piece if you’re covering the whole wheel.',
+      'Lowest total stake of the three classic bets (5 units), with one number (17) paying out twice if it hits.',
+    ],
+    limitations: [
+      'Narrowest coverage of the three classic wheel bets — only 8 numbers.',
+      'The straight-up leg on 1 and the double-split on 17 behave differently from the rest, adding a layer to track.',
+    ],
+    bestUseCase: 'Players completing full-wheel coverage alongside Voisins and Tiers, or wanting the cheapest classic bet.',
+  },
+];
+
+export function getCoverageGuideMeta(id: RouletteCoverageStrategy): CoverageGuideMeta {
+  return COVERAGE_GUIDE_META.find((c) => c.id === id) ?? COVERAGE_GUIDE_META[0];
 }
 
 export const HOUSE_EDGE_DISCLAIMER =

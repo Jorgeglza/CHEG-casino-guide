@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import StrategyTab from './tabs/StrategyTab';
+import GuideTab from './tabs/GuideTab';
 import SimulatorTab from './tabs/SimulatorTab';
 import RulesTab from './tabs/RulesTab';
 import BetReferenceTab from './tabs/BetReferenceTab';
 
-const TAB_IDS = ['strategy', 'simulator', 'rules', 'reference'] as const;
+const TAB_IDS = ['strategy', 'guide', 'simulator', 'rules', 'reference'] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 const TAB_LABELS: Record<TabId, string> = {
   strategy: 'Strategy',
+  guide: 'Strategy Guide',
   simulator: 'Monte Carlo Simulator',
   rules: 'Rules & How to Play',
   reference: 'Bet Reference',
@@ -31,6 +33,7 @@ export default function RouletteModule() {
         ))}
       </nav>
       {activeTab === 'strategy' && <StrategyTab />}
+      {activeTab === 'guide' && <GuideTab />}
       {activeTab === 'simulator' && <SimulatorTab />}
       {activeTab === 'rules' && <RulesTab />}
       {activeTab === 'reference' && <BetReferenceTab />}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runTrial, type RouletteSimConfig } from './simulate';
+import { runMonteCarlo, runTrial, type RouletteSimConfig } from './simulate';
 import { coverageTotalUnits, getCoverageStrategy } from './coverageStrategies';
 
 const baseConfig: RouletteSimConfig = {
@@ -54,5 +54,19 @@ describe('runTrial — coverage mode', () => {
       const result = runTrial({ ...coverageConfig, coverageStrategyId: id, maxSpins: 20 }, false);
       expect(result.spinsCompleted).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('runMonteCarlo — guide-page aggregate stats', () => {
+  it('computes avgSpinsSurvived, avgWinRatePerSpin, avgTotalWagered, and theoreticalExpectedBankroll', () => {
+    const summary = runMonteCarlo({ ...baseConfig, maxSpins: 30, stopLoss: undefined, stopWin: undefined }, 200);
+    expect(summary.avgSpinsSurvived).toBeGreaterThan(0);
+    expect(summary.avgSpinsSurvived).toBeLessThanOrEqual(30);
+    expect(summary.avgWinRatePerSpin).toBeGreaterThan(0);
+    expect(summary.avgWinRatePerSpin).toBeLessThan(100);
+    expect(summary.avgTotalWagered).toBeGreaterThan(0);
+    // Over 200 trials the theoretical (closed-form) expected bankroll should land close
+    // to the simulated average — that convergence is the pedagogical point of showing both.
+    expect(Math.abs(summary.theoreticalExpectedBankroll - summary.averageFinal)).toBeLessThan(200);
   });
 });

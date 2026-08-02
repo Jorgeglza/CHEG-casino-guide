@@ -226,6 +226,10 @@ export interface RouletteSimSummary {
   stopReasonBreakdown: Record<StopReason, number>;
   profitablePct: number;
   ruinPct: number;
+  avgSpinsSurvived: number;
+  avgWinRatePerSpin: number; // average, across trials, of (wins / spins completed) — "how often a spin wins," distinct from profitablePct's "did the session end up"
+  avgTotalWagered: number;
+  theoreticalExpectedBankroll: number; // startingBankroll - avgTotalWagered * theoreticalHouseEdge, for comparing the empirical average against the closed-form expectation
   vsFlatBetting?: { flatAvgFinal: number; flatRiskOfRuin: number };
 }
 
@@ -305,6 +309,12 @@ function summarize(config: RouletteSimConfig, trials: RouletteTrialResult[]): Ro
 
   const avgMaxDrawdown = trials.reduce((a, t) => a + t.maxDrawdown, 0) / trials.length;
   const avgLargestWager = trials.reduce((a, t) => a + t.largestWager, 0) / trials.length;
+  const avgSpinsSurvived = trials.reduce((a, t) => a + t.spinsCompleted, 0) / trials.length;
+  const avgWinRatePerSpin =
+    trials.reduce((a, t) => a + (t.spinsCompleted > 0 ? t.wins / t.spinsCompleted : 0), 0) / trials.length;
+  const avgTotalWagered = trials.reduce((a, t) => a + t.totalWagered, 0) / trials.length;
+  const theoreticalHouseEdge = theoreticalHouseEdgeFor(config);
+  const theoreticalExpectedBankroll = config.startingBankroll - avgTotalWagered * (theoreticalHouseEdge / 100);
 
   return {
     trajectoryPercentiles,
@@ -314,7 +324,7 @@ function summarize(config: RouletteSimConfig, trials: RouletteTrialResult[]): Ro
     riskOfRuin: (ruins / trials.length) * 100,
     averageFinal,
     medianFinal,
-    theoreticalHouseEdge: theoreticalHouseEdgeFor(config),
+    theoreticalHouseEdge,
     positiveCount,
     neutralCount,
     negativeCount,
@@ -326,6 +336,10 @@ function summarize(config: RouletteSimConfig, trials: RouletteTrialResult[]): Ro
     stopReasonBreakdown,
     profitablePct: (positiveCount / trials.length) * 100,
     ruinPct: (ruins / trials.length) * 100,
+    avgSpinsSurvived,
+    avgWinRatePerSpin: avgWinRatePerSpin * 100,
+    avgTotalWagered,
+    theoreticalExpectedBankroll,
   };
 }
 

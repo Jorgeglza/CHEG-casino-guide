@@ -16,7 +16,7 @@ import {
 import InfoTip from '../components/InfoTip';
 import RouletteTable from '../components/RouletteTable';
 import RouletteWheel from '../components/RouletteWheel';
-import { betCoverage, houseEdgeOf, PAYOUT_TABLE, probabilityOf } from '../engine/rouletteMath';
+import { betCoverage, houseEdgeOf, PAYOUT_TABLE, placementDescription, probabilityOf } from '../engine/rouletteMath';
 import { pocketColorOf, wheelSize } from '../engine/wheelOrder';
 import { isBetCompatible, runInBatches, simulateSingleRun, type RouletteSimConfig, type RouletteSimSummary, type RouletteTrialResult } from '../engine/simulate';
 import { COVERAGE_STRATEGIES, computeCoverageOutcome, coverageNumbers, coverageTotalUnits, getCoverageStrategy } from '../engine/coverageStrategies';
@@ -440,42 +440,6 @@ export default function SimulatorTab() {
         </div>
       </section>
 
-      {betMode === 'single' && tableSelection && strategy !== 'james-bond' && (
-        <section className="panel">
-          <h3>Selected bet</h3>
-          <RouletteTable variant={variant} selection={tableSelection} />
-          <div className="selection-odds-readout">
-            <span>
-              Chance of hitting: <strong>{(selectionHitProbability * 100).toFixed(2)}%</strong>
-            </span>
-            <span className="selection-odds-readout-win">
-              If it hits: <strong>+${impliedWin.toFixed(2)}</strong>
-            </span>
-            <span className="selection-odds-readout-lose">
-              If it misses: <strong>-${baseUnit.toFixed(2)}</strong>
-            </span>
-          </div>
-        </section>
-      )}
-
-      {betMode === 'coverage' && coverageSelection && coverageOutcome && (
-        <section className="panel">
-          <h3>Selected coverage: {coverageDef.label}</h3>
-          <RouletteTable variant={coverageDef.variant === 'both' ? variant : coverageDef.variant} selection={coverageSelection} />
-          <div className="selection-odds-readout">
-            <span>
-              Chance of hitting: <strong>{(coverageOutcome.hitProbability * 100).toFixed(2)}%</strong>
-            </span>
-            <span className="selection-odds-readout-win">
-              If it hits (avg): <strong>+${coverageOutcome.averageProfitIfHit.toFixed(2)}</strong>
-            </span>
-            <span className="selection-odds-readout-lose">
-              If it misses: <strong>-${coverageOutcome.worstCaseLoss.toFixed(2)}</strong>
-            </span>
-          </div>
-        </section>
-      )}
-
       <div aria-live="polite">
         {detailedResult && ranConfig && (
           <>
@@ -490,17 +454,6 @@ export default function SimulatorTab() {
                 · {ranConfig.variant} · ${ranConfig.baseUnit} base unit · stopped: {detailedResult.stopReason}
               </span>
             </section>
-
-            {detailedResult.spinHistory.length > 0 && (
-              <section className="panel roulette-wheel-panel">
-                <h3>Last spin</h3>
-                <RouletteWheel
-                  variant={ranConfig.variant}
-                  highlightedPocket={detailedResult.spinHistory[detailedResult.spinHistory.length - 1].winningNumber}
-                  size={220}
-                />
-              </section>
-            )}
 
             <section className="panel stats-panel">
               <div className="stat">
@@ -552,47 +505,13 @@ export default function SimulatorTab() {
                 </AreaChart>
               </ResponsiveContainer>
             </section>
-
-            <section className="panel">
-              <h3>Spin history</h3>
-              <div className="bet-table-wrapper spin-history-table">
-                <table className="bet-table">
-                  <thead>
-                    <tr>
-                      <th>Spin</th>
-                      <th>Result</th>
-                      <th>Wager</th>
-                      <th>Outcome</th>
-                      <th>Profit</th>
-                      <th>Bankroll</th>
-                      <th>Strategy state</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detailedResult.spinHistory.map((s) => (
-                      <tr key={s.spinNumber}>
-                        <td>{s.spinNumber}</td>
-                        <td>
-                          <span className={`result-swatch result-swatch--${pocketColorOf(s.winningNumber)}`}>{s.winningNumber}</span>
-                        </td>
-                        <td>${s.wager.toFixed(2)}</td>
-                        <td style={{ color: OUTCOME_COLOR[s.outcome] }}>{s.outcome}</td>
-                        <td>{s.profit >= 0 ? '+' : ''}{s.profit.toFixed(2)}</td>
-                        <td>${s.bankrollAfter.toFixed(2)}</td>
-                        <td>{s.strategyStateLabel}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
           </>
         )}
 
         {mcSummary && (
           <>
             <section className="panel">
-              <h3>Monte Carlo results ({mcRuns.toLocaleString()} sessions)</h3>
+              <h3>Bankroll distribution ({mcRuns.toLocaleString()} sessions)</h3>
               <div className="kpi-row-mini">
                 <span className="kpi-mini kpi-mini-positive">{mcSummary.profitablePct.toFixed(1)}% profitable</span>
                 <span className="kpi-mini kpi-mini-negative">{mcSummary.ruinPct.toFixed(1)}% ended in ruin</span>
@@ -605,6 +524,11 @@ export default function SimulatorTab() {
                 <div className="stat">
                   <span className="stat-label">Median ending bankroll</span>
                   <span className="stat-value">${mcSummary.medianFinal.toFixed(0)}</span>
+                </div>
+                <div className="stat">
+                  <span className="stat-label">Expected bankroll (theoretical)</span>
+                  <span className="stat-value">${mcSummary.theoreticalExpectedBankroll.toFixed(0)}</span>
+                  <span className="stat-sub">from house edge × avg wagered — compare to the simulated average above</span>
                 </div>
                 <div className="stat">
                   <span className="stat-label">Avg max drawdown</span>
@@ -626,10 +550,23 @@ export default function SimulatorTab() {
                   {mcSummary.vsFlatBetting.flatRiskOfRuin.toFixed(1)}% risk of ruin.
                 </p>
               )}
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={mcSummary.histogram}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                  <XAxis dataKey="bucket" tick={{ fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={60} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v) => [v, 'Sessions']} />
+                  <Bar dataKey="count" name="Sessions" radius={[4, 4, 0, 0]}>
+                    {mcSummary.histogram.map((entry, i) => (
+                      <Cell key={i} fill={entry.winning ? '#3d9970' : '#c0392b'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </section>
 
             <section className="panel">
-              <h3>Bankroll percentile bands across sessions</h3>
+              <h3>Bankroll % over time (percentile bands across sessions)</h3>
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={mcSummary.trajectoryPercentiles}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
@@ -645,24 +582,103 @@ export default function SimulatorTab() {
                 </AreaChart>
               </ResponsiveContainer>
             </section>
-
-            <section className="panel">
-              <h3>Final bankroll distribution</h3>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={mcSummary.histogram}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-                  <XAxis dataKey="bucket" tick={{ fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={60} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v) => [v, 'Sessions']} />
-                  <Bar dataKey="count" name="Sessions" radius={[4, 4, 0, 0]}>
-                    {mcSummary.histogram.map((entry, i) => (
-                      <Cell key={i} fill={entry.winning ? '#3d9970' : '#c0392b'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </section>
           </>
+        )}
+
+        {betMode === 'single' && tableSelection && strategy !== 'james-bond' && (
+          <section className="panel">
+            <h3>Selected bet</h3>
+            <RouletteTable variant={variant} selection={tableSelection} />
+            <div className="selection-odds-readout">
+              <span>
+                Chance of hitting: <strong>{(selectionHitProbability * 100).toFixed(2)}%</strong>
+              </span>
+              <span className="selection-odds-readout-win">
+                If it hits: <strong>+${impliedWin.toFixed(2)}</strong>
+              </span>
+              <span className="selection-odds-readout-lose">
+                If it misses: <strong>-${baseUnit.toFixed(2)}</strong>
+              </span>
+            </div>
+            <div className="bet-placement-note">
+              <strong>Exactly where to place this bet:</strong> {placementDescription(betType, betParams)}
+            </div>
+          </section>
+        )}
+
+        {betMode === 'coverage' && coverageSelection && coverageOutcome && (
+          <section className="panel">
+            <h3>Selected coverage: {coverageDef.label}</h3>
+            <RouletteTable variant={coverageDef.variant === 'both' ? variant : coverageDef.variant} selection={coverageSelection} />
+            <div className="selection-odds-readout">
+              <span>
+                Chance of hitting: <strong>{(coverageOutcome.hitProbability * 100).toFixed(2)}%</strong>
+              </span>
+              <span className="selection-odds-readout-win">
+                If it hits (avg): <strong>+${coverageOutcome.averageProfitIfHit.toFixed(2)}</strong>
+              </span>
+              <span className="selection-odds-readout-lose">
+                If it misses: <strong>-${coverageOutcome.worstCaseLoss.toFixed(2)}</strong>
+              </span>
+            </div>
+            <div className="bet-placement-note">
+              <strong>Exactly where to place each leg of this spread:</strong>
+              <ul>
+                {coverageDef.legs.map((leg) => (
+                  <li key={leg.label}>
+                    <strong>${(leg.units * baseUnit).toFixed(2)} on {leg.label}</strong> — {placementDescription(leg.betType, leg.params)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
+        {detailedResult && ranConfig && detailedResult.spinHistory.length > 0 && (
+          <section className="panel roulette-wheel-panel">
+            <h3>Last spin</h3>
+            <RouletteWheel
+              variant={ranConfig.variant}
+              highlightedPocket={detailedResult.spinHistory[detailedResult.spinHistory.length - 1].winningNumber}
+              size={220}
+            />
+          </section>
+        )}
+
+        {detailedResult && detailedResult.spinHistory.length > 0 && (
+          <section className="panel">
+            <h3>Spin history</h3>
+            <div className="bet-table-wrapper spin-history-table">
+              <table className="bet-table">
+                <thead>
+                  <tr>
+                    <th>Spin</th>
+                    <th>Result</th>
+                    <th>Wager</th>
+                    <th>Outcome</th>
+                    <th>Profit</th>
+                    <th>Bankroll</th>
+                    <th>Strategy state</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailedResult.spinHistory.map((s) => (
+                    <tr key={s.spinNumber}>
+                      <td>{s.spinNumber}</td>
+                      <td>
+                        <span className={`result-swatch result-swatch--${pocketColorOf(s.winningNumber)}`}>{s.winningNumber}</span>
+                      </td>
+                      <td>${s.wager.toFixed(2)}</td>
+                      <td style={{ color: OUTCOME_COLOR[s.outcome] }}>{s.outcome}</td>
+                      <td>{s.profit >= 0 ? '+' : ''}{s.profit.toFixed(2)}</td>
+                      <td>${s.bankrollAfter.toFixed(2)}</td>
+                      <td>{s.strategyStateLabel}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
       </div>
 
