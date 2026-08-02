@@ -2,6 +2,8 @@
 
 A visual, interactive guide to beating the house edge — one game at a time. Each game is a self-contained module with its own tabs (strategy, simulation, rules, bet reference). Currently live: **Craps**.
 
+**Live site:** https://jorgeglza.github.io/CHEG-casino-guide/
+
 ## Local development
 
 ```bash
@@ -35,29 +37,16 @@ New games get added as sibling folders under `src/modules/`, registered in `src/
 
 ## Deploying to GitHub Pages (one-time manual setup)
 
-This repo is not yet connected to GitHub. To publish it:
+This repo is connected to [github.com/Jorgeglza/CHEG-casino-guide](https://github.com/Jorgeglza/CHEG-casino-guide) and every push to `main` builds and deploys automatically via `.github/workflows/deploy.yml`. The one manual step that can't be done from the CLI:
 
-1. **Create the GitHub repo.** On github.com, create a new **public** repository named `CHEG-casino-guide` (must match the `base` path in `vite.config.ts` — update that value if you use a different name).
+1. **Enable GitHub Pages via Actions.** In the repo on GitHub: **Settings → Pages → Source**, select **GitHub Actions** (not "Deploy from a branch"). This must be done once before the first deploy will succeed — if you see a deploy step fail with `Error: HttpError: Not Found` / `Ensure GitHub Pages has been enabled`, it means this step hasn't been done yet (or wasn't saved).
 
-2. **Push this folder to it:**
+2. **Re-run the deploy.** Once Pages is enabled, go to the **Actions** tab → select the failed run → **Re-run all jobs** (or just push a new commit to `main`).
 
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit: craps module"
-   git branch -M main
-   git remote add origin https://github.com/<your-username>/CHEG-casino-guide.git
-   git push -u origin main
-   ```
-
-3. **Enable GitHub Pages via Actions.** In the repo on GitHub: **Settings → Pages → Source**, select **GitHub Actions** (not "Deploy from a branch").
-
-4. **Push triggers the deploy.** The workflow at `.github/workflows/deploy.yml` builds and publishes automatically on every push to `main`. Check the **Actions** tab for progress.
-
-5. **Site goes live at:**
+3. **Site goes live at:**
 
    ```
-   https://<your-username>.github.io/CHEG-casino-guide/
+   https://jorgeglza.github.io/CHEG-casino-guide/
    ```
 
    First deploy can take a minute or two after the workflow completes.
