@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import CrapsModule from './modules/craps/CrapsModule';
+import RouletteModule from './modules/roulette/RouletteModule';
 
 interface ModuleDef {
   id: string;
@@ -11,7 +12,7 @@ interface ModuleDef {
 const MODULES: ModuleDef[] = [
   { id: 'craps', label: 'Craps', component: CrapsModule, available: true },
   { id: 'blackjack', label: 'Blackjack', component: CrapsModule, available: false },
-  { id: 'roulette', label: 'Roulette', component: CrapsModule, available: false },
+  { id: 'roulette', label: 'Roulette', component: RouletteModule, available: true },
 ];
 
 function App() {

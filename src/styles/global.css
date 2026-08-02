@@ -1100,3 +1100,455 @@ h3,
     padding: 16px;
   }
 }
+
+/* ---------- Roulette ---------- */
+
+.roulette-wheel-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.roulette-wheel {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.roulette-wheel-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.wheel-compare-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: center;
+  margin: 14px 0;
+}
+
+.wheel-compare-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+.wheel-compare-item .roulette-wheel {
+  max-width: 200px;
+}
+
+/* Betting table */
+.roulette-table-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-x: auto;
+}
+
+.roulette-table-grid {
+  display: flex;
+  gap: 4px;
+  min-width: 340px;
+}
+
+.roulette-zero-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 46px;
+  flex-shrink: 0;
+}
+
+.roulette-zero-col .roulette-cell {
+  flex: 1;
+  min-height: 40px;
+}
+
+.roulette-numbers-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.roulette-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+}
+
+.roulette-cell {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #f4efe4;
+  cursor: pointer;
+  text-align: center;
+}
+
+.roulette-cell:disabled {
+  cursor: default;
+}
+
+.roulette-cell--red {
+  background: #c0392b;
+}
+
+.roulette-cell--black {
+  background: #1a1a1a;
+}
+
+.roulette-cell--green {
+  background: #0e6b45;
+}
+
+.roulette-cell.highlighted {
+  outline: 3px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.roulette-cell.winning {
+  box-shadow: 0 0 0 3px #f7c948, 0 0 12px rgba(247, 201, 72, 0.7);
+}
+
+.roulette-outside-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.roulette-outside-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 4px;
+}
+
+.roulette-outside-cell {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 6px;
+  color: var(--text);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.roulette-outside-cell:disabled {
+  cursor: default;
+}
+
+.roulette-outside-cell.highlighted {
+  border-color: var(--accent);
+  background: rgba(212, 175, 55, 0.12);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Strategy cards */
+.baseline-panel ul,
+.responsible-gambling-panel ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.strategy-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.strategy-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.strategy-card.expanded {
+  border-color: var(--accent);
+}
+
+.strategy-card-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  padding: 14px 16px;
+  cursor: pointer;
+  color: var(--text);
+  text-align: left;
+}
+
+.strategy-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.strategy-card-title strong {
+  font-size: 0.95rem;
+}
+
+.strategy-card-category {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.risk-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.risk-pill--low {
+  background: #1f9d5522;
+  color: #3d9970;
+  border: 1px solid #3d997066;
+}
+
+.risk-pill--moderate {
+  background: #d9a44122;
+  color: #d9a441;
+  border: 1px solid #d9a44166;
+}
+
+.risk-pill--high {
+  background: #d9722c22;
+  color: #d9722c;
+  border: 1px solid #d9722c66;
+}
+
+.risk-pill--very-high {
+  background: #c0392b22;
+  color: #e07360;
+  border: 1px solid #c0392b66;
+}
+
+.strategy-card-body {
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.strategy-fact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.strategy-fact-grid dt {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.strategy-fact-grid dd {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+}
+
+.strategy-progression {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.strategy-progression-label {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.strategy-progression-values {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.strategy-progression-chip {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.strategy-pros-cons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.strategy-pros-cons h4 {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+}
+
+.strategy-pros-cons ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.strategy-bankroll-warning {
+  font-size: 0.82rem;
+  color: #d9722c;
+  margin: 0;
+}
+
+.strategy-house-edge-note {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin: 0;
+}
+
+/* Bet chip */
+.bet-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+
+.bet-chip--red {
+  color: #e07360;
+  border-color: #c0392b66;
+}
+
+.bet-chip--black {
+  color: #cfcfcf;
+  border-color: #444;
+}
+
+.bet-chip--neutral {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Callouts */
+.callout {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 10px 0;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.callout--warning {
+  border-left-color: #d9722c;
+  background: rgba(217, 114, 44, 0.08);
+}
+
+.callout strong {
+  color: var(--text);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.edge-worked-example {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  color: var(--text-dim);
+}
+
+/* Simulator extras */
+.straight-number-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  max-width: 260px;
+}
+
+.straight-number-input input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.warning-text {
+  color: #e07360;
+  font-size: 0.82rem;
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+.result-swatch {
+  display: inline-block;
+  min-width: 26px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-align: center;
+  color: #f4efe4;
+}
+
+.result-swatch--red {
+  background: #c0392b;
+}
+
+.result-swatch--black {
+  background: #1a1a1a;
+}
+
+.result-swatch--green {
+  background: #0e6b45;
+}
+
+.spin-history-table {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+@media (max-width: 640px) {
+  .roulette-table-grid {
+    min-width: 300px;
+  }
+  .roulette-zero-col {
+    width: 36px;
+  }
+  .strategy-card-header {
+    flex-wrap: wrap;
+  }
+}
