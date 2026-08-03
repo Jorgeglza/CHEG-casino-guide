@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useHashRoute } from '../../useHashRoute';
 import StrategyTab from './tabs/StrategyTab';
 import GuideTab from './tabs/GuideTab';
 import SimulatorTab from './tabs/SimulatorTab';
@@ -17,7 +17,8 @@ const TAB_LABELS: Record<TabId, string> = {
 };
 
 export default function RouletteModule() {
-  const [activeTab, setActiveTab] = useState<TabId>('strategy');
+  const { tab, navigate } = useHashRoute();
+  const activeTab: TabId = TAB_IDS.includes(tab as TabId) ? (tab as TabId) : 'strategy';
 
   return (
     <div className="module">
@@ -26,7 +27,7 @@ export default function RouletteModule() {
           <button
             key={id}
             className={activeTab === id ? 'tab-button active' : 'tab-button'}
-            onClick={() => setActiveTab(id)}
+            onClick={() => navigate('roulette', id)}
           >
             {TAB_LABELS[id]}
           </button>

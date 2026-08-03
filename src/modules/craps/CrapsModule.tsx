@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useHashRoute } from '../../useHashRoute';
 import OverviewTab from './tabs/OverviewTab';
 import StrategyTab from './tabs/StrategyTab';
 import SimulatorTab from './tabs/SimulatorTab';
@@ -17,7 +17,8 @@ const TAB_LABELS: Record<TabId, string> = {
 };
 
 export default function CrapsModule() {
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const { tab, navigate } = useHashRoute();
+  const activeTab: TabId = TAB_IDS.includes(tab as TabId) ? (tab as TabId) : 'overview';
 
   return (
     <div className="module">
@@ -26,13 +27,13 @@ export default function CrapsModule() {
           <button
             key={id}
             className={activeTab === id ? 'tab-button active' : 'tab-button'}
-            onClick={() => setActiveTab(id)}
+            onClick={() => navigate('craps', id)}
           >
             {TAB_LABELS[id]}
           </button>
         ))}
       </nav>
-      {activeTab === 'overview' && <OverviewTab onNavigate={(id) => setActiveTab(id as TabId)} />}
+      {activeTab === 'overview' && <OverviewTab onNavigate={(id) => navigate('craps', id)} />}
       {activeTab === 'strategy' && <StrategyTab />}
       {activeTab === 'simulator' && <SimulatorTab />}
       {activeTab === 'rules' && <RulesTab />}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useHashRoute } from './useHashRoute';
 import HomeModule from './modules/home/HomeModule';
 import CrapsModule from './modules/craps/CrapsModule';
 import RouletteModule from './modules/roulette/RouletteModule';
@@ -19,8 +19,9 @@ const MODULES: ModuleDef[] = [
 ];
 
 function App() {
-  const [activeModule, setActiveModule] = useState('home');
-  const current = MODULES.find((m) => m.id === activeModule) ?? MODULES[0];
+  const { module: hashModule, navigate } = useHashRoute();
+  const current = MODULES.find((m) => m.id === hashModule && m.available) ?? MODULES[0];
+  const activeModule = current.id;
   const ActiveModule = current.component;
 
   return (
@@ -37,7 +38,7 @@ function App() {
             <button
               key={m.id}
               className={`module-button ${activeModule === m.id ? 'active' : ''} ${!m.available ? 'disabled' : ''}`}
-              onClick={() => m.available && setActiveModule(m.id)}
+              onClick={() => m.available && navigate(m.id)}
               disabled={!m.available}
               title={m.available ? undefined : 'Coming soon'}
             >
@@ -48,7 +49,7 @@ function App() {
         </nav>
       </header>
       <main>
-        {activeModule === 'home' ? <HomeModule onNavigate={setActiveModule} /> : <ActiveModule />}
+        {activeModule === 'home' ? <HomeModule onNavigate={(id) => navigate(id)} /> : <ActiveModule />}
       </main>
       <footer className="app-footer">
         <p>Educational guide. House edges are long-run theoretical averages — no strategy overcomes them.</p>
