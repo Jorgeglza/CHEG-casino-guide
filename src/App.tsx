@@ -29,7 +29,7 @@ function App() {
         <div className="brand">
           <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="brand-logo" />
           <span className="brand-wordmark">
-            CHEG <span className="brand-accent">Casino Guide</span>
+            CHEG <span className="brand-accent">Casino Strategy</span>
           </span>
         </div>
         <nav className="module-nav">

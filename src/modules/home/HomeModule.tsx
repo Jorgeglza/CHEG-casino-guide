@@ -125,7 +125,7 @@ export default function HomeModule({ onNavigate }: HomeModuleProps) {
       <section className="panel hero-panel">
         <h1 className="hero-title">Casino Games, Explained Clearly</h1>
         <p className="hero-desc">
-          CHEG Casino Guide helps you understand the rules, bets, probabilities, and common strategies behind
+          Casino House Edge Guide helps you understand the rules, bets, probabilities, and common strategies behind
           popular casino games — so you know what's actually happening at the table.
         </p>
         <button className="primary hero-cta" onClick={() => onNavigate('craps')}>
