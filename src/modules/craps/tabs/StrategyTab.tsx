@@ -3,6 +3,7 @@ import StrategyBoard from '../components/StrategyBoard';
 import EdgeBadge from '../components/EdgeBadge';
 import { combinedHouseEdge, type Point } from '../engine/bets';
 import { PLACE_EDGE_BY_NUMBER, pointRepeatProbability } from '../engine/probabilities';
+import { STAKING_STRATEGY_META } from '../data/crapsStrategies';
 
 const POINTS: Point[] = [4, 5, 6, 8, 9, 10];
 const ODDS_OPTIONS = [0, 1, 2, 3, 5, 10];
@@ -198,6 +199,32 @@ export default function StrategyTab() {
             changes your variance and how much is at risk on a seven-out, not your long-run expected loss.
           </li>
         </ul>
+      </section>
+
+      <section className="panel">
+        <h3>Optional Staking Systems</h3>
+        <p>
+          Everything above is about which bets to have working. A separate question is how much to wager on the
+          Pass Line from one come-out to the next — a "staking system." Like bet selection, staking systems can't
+          touch the house edge either; they only reshape when the wins and losses land. Try any of these in the{' '}
+          <strong>Monte Carlo Simulator</strong>, or see them compared side by side on the{' '}
+          <strong>Strategy Guide</strong> tab.
+        </p>
+        <div className="guide-card-list">
+          {STAKING_STRATEGY_META.map((system) => (
+            <div className="guide-card" key={system.id}>
+              <div className="guide-card-header">
+                <strong>{system.label}</strong>
+                <span className={`risk-pill risk-pill--${system.riskLevel}`}>{system.riskLabel}</span>
+              </div>
+              <ul>
+                <li>{system.winRule}</li>
+                <li>{system.lossRule}</li>
+              </ul>
+              <p className="chart-note">{system.bestUseCase}</p>
+            </div>
+          ))}
+        </div>
       </section>
     </div>
   );

@@ -13,11 +13,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { runMonteCarlo, type SimSummary } from '../engine/simulate';
+import { runInBatches, simulateSingleRun, type SimConfig, type SimSummary, type TrialResult } from '../engine/simulate';
 import { combinedHouseEdge, STRATEGIES, type StrategyId } from '../engine/bets';
+import { STAKING_STRATEGIES, type CrapsStakingStrategy } from '../engine/strategyEngine';
+import { HOUSE_EDGE_DISCLAIMER, RESPONSIBLE_GAMBLING_NOTICE } from '../data/crapsStrategies';
 import InfoTip from '../components/InfoTip';
 
 const ODDS_OPTIONS = [0, 1, 2, 3, 5, 10];
+const MC_RUN_OPTIONS = [100, 1000, 10000];
 
 const OUTCOME_COLOR: Record<'win' | 'lose' | 'neutral', string> = {
   win: '#3d9970',
@@ -98,57 +101,105 @@ function DiceRollTooltip({ active, payload }: { active?: boolean; payload?: { pa
   );
 }
 
+const STOP_REASON_LABEL: Record<TrialResult['stopReason'], string> = {
+  'max-rolls': 'reached roll limit',
+  'stop-loss': 'hit stop-loss',
+  'stop-win': 'hit stop-win',
+  ruin: 'bankroll ruined',
+  'table-max-exceeded': 'wager would exceed table max',
+};
+
 export default function SimulatorTab() {
   const [startingBankroll, setStartingBankroll] = useState(500);
-  const [betSize, setBetSize] = useState(15);
+  const [baseUnit, setBaseUnit] = useState(15);
   const [oddsMultiple, setOddsMultiple] = useState(3);
+  const [tableMax, setTableMax] = useState(500);
   const [strategy, setStrategy] = useState<StrategyId>('pass-odds');
+  const [stakingStrategy, setStakingStrategy] = useState<CrapsStakingStrategy>('flat');
+  const [paroliCap, setParoliCap] = useState(3);
   const [maxRolls, setMaxRolls] = useState(200);
-  const [trials, setTrials] = useState(500);
-  const [result, setResult] = useState<SimSummary | null>(null);
+  const [useStopLoss, setUseStopLoss] = useState(false);
+  const [stopLoss, setStopLoss] = useState(200);
+  const [useStopWin, setUseStopWin] = useState(false);
+  const [stopWin, setStopWin] = useState(900);
+  const [mcRuns, setMcRuns] = useState(500);
+
   const [running, setRunning] = useState(false);
-  const [ranStrategy, setRanStrategy] = useState<StrategyId | null>(null);
-  const [ranOddsMultiple, setRanOddsMultiple] = useState(0);
+  const [mcProgress, setMcProgress] = useState(0);
+  const [detailedResult, setDetailedResult] = useState<TrialResult | null>(null);
+  const [mcSummary, setMcSummary] = useState<SimSummary | null>(null);
+  const [ranConfig, setRanConfig] = useState<SimConfig | null>(null);
 
   const edge = combinedHouseEdge(oddsMultiple);
 
+  function buildConfig(): SimConfig {
+    return {
+      startingBankroll,
+      baseUnit,
+      oddsMultiple,
+      tableMax,
+      maxRolls,
+      trials: mcRuns,
+      strategy,
+      stakingStrategy,
+      paroliCap,
+      stopLoss: useStopLoss ? stopLoss : undefined,
+      stopWin: useStopWin ? stopWin : undefined,
+    };
+  }
+
   const handleRun = () => {
     setRunning(true);
+    setMcProgress(0);
+    const config = buildConfig();
     // allow UI to paint before the (synchronous) crunch
     setTimeout(() => {
-      const summary = runMonteCarlo({
-        startingBankroll,
-        betSize,
-        oddsMultiple,
-        maxRolls,
-        trials,
-        strategy,
-      });
-      setResult(summary);
-      setRanStrategy(strategy);
-      setRanOddsMultiple(oddsMultiple);
-      setRunning(false);
+      const single = simulateSingleRun(config);
+      setDetailedResult(single);
+      setRanConfig(config);
+
+      if (mcRuns > 0) {
+        runInBatches(
+          config,
+          mcRuns,
+          (pct) => setMcProgress(pct),
+          (summary) => {
+            setMcSummary(summary);
+            setRunning(false);
+          },
+        );
+      } else {
+        setMcSummary(null);
+        setRunning(false);
+      }
     }, 20);
   };
 
-  const chartData = useMemo(() => result?.trajectoryPercentiles ?? [], [result]);
-  const ranStrategyDef = ranStrategy ? STRATEGIES.find((s) => s.id === ranStrategy) : null;
+  const chartData = useMemo(() => mcSummary?.trajectoryPercentiles ?? [], [mcSummary]);
+  const ranStrategyDef = ranConfig ? STRATEGIES.find((s) => s.id === ranConfig.strategy) : null;
+  const ranStakingDef = ranConfig ? STAKING_STRATEGIES.find((s) => s.id === ranConfig.stakingStrategy) : null;
+  const singleChartData = useMemo(
+    () => (detailedResult ? detailedResult.trajectory.map((b, i) => ({ roll: i, bankroll: b })) : []),
+    [detailedResult],
+  );
 
   return (
     <div className="tab-content simulator-tab">
       <section className="panel">
         <h2>Monte Carlo Simulator</h2>
         <p>
-          Pick the strategy you actually plan to play, then run thousands of simulated sessions to see the real range
-          of outcomes — not just the theoretical average. Variance is huge in craps; the house edge tells you what
-          happens over millions of rolls, not what happens to you tonight.
+          Pick which bets you'll have working, how you'll size your Pass Line wager round to round, then run a
+          single detailed session or thousands of sessions at once to see the real range of outcomes — not just the
+          theoretical average. Variance is huge in craps; the house edge tells you what happens over millions of
+          rolls, not what happens to you tonight.
         </p>
+        <p className="fine-print">{HOUSE_EDGE_DISCLAIMER}</p>
       </section>
 
       <section className="panel controls-panel">
         <div className="control-group strategy-select-group">
           <span>
-            Strategy followed
+            Bets working
             <InfoTip text="Which bets get placed once a point is established, on top of the Pass Line + Odds. This should match the plan you'd actually use at the table — check the Strategy tab if you're not sure which to pick." />
           </span>
           <div className="strategy-options">
@@ -163,6 +214,31 @@ export default function SimulatorTab() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="control-group strategy-select-group">
+          <span>
+            Staking system
+            <InfoTip text="How the Pass Line wager (and everything scaled off it — Odds, Place bets) is sized from one come-out to the next, based on whether the last Pass Line decision won or lost. This changes bankroll volatility, not the house edge — see the Strategy Guide tab for a side-by-side comparison." />
+          </span>
+          <div className="strategy-options">
+            {STAKING_STRATEGIES.map((s) => (
+              <button
+                key={s.id}
+                className={`strategy-option ${stakingStrategy === s.id ? 'active' : ''}`}
+                onClick={() => setStakingStrategy(s.id)}
+              >
+                <strong>{s.label}</strong>
+                <span>{s.description}</span>
+              </button>
+            ))}
+          </div>
+          {stakingStrategy === 'paroli' && (
+            <label className="straight-number-input">
+              <span>Paroli max consecutive wins before reset</span>
+              <input type="number" min={1} max={10} value={paroliCap} onChange={(e) => setParoliCap(Number(e.target.value))} />
+            </label>
+          )}
         </div>
 
         <div className="field-grid">
@@ -181,15 +257,22 @@ export default function SimulatorTab() {
           </label>
           <label>
             <span className="field-label-row">
-              Flat bet size ($)
-              <InfoTip text="Your base Pass Line wager (and the size used for each Place bet in the chosen strategy), placed fresh every come-out roll. Keep it small relative to your bankroll — roughly 1/30th to 1/50th — so ordinary variance doesn't wipe you out." />
+              Base unit ($)
+              <InfoTip text="Your starting Pass Line wager (and the size used for each Place bet), before the staking system adjusts it round to round. Keep it small relative to your bankroll — roughly 1/30th to 1/50th — so ordinary variance doesn't wipe you out." />
             </span>
-            <input type="number" min={5} step={5} value={betSize} onChange={(e) => setBetSize(Number(e.target.value))} />
+            <input type="number" min={5} step={5} value={baseUnit} onChange={(e) => setBaseUnit(Number(e.target.value))} />
+          </label>
+          <label>
+            <span className="field-label-row">
+              Table maximum ($)
+              <InfoTip text="The most you're allowed to wager on the Pass Line at this table. Progression systems like Martingale can hit this ceiling during a losing streak — when they do, the session stops rather than placing an illegal bet." />
+            </span>
+            <input type="number" min={5} step={5} value={tableMax} onChange={(e) => setTableMax(Number(e.target.value))} />
           </label>
           <label>
             <span className="field-label-row">
               Odds multiple
-              <InfoTip text="How many times your flat bet you back the Pass Line with once a point is set. Odds pay true odds — 0% house edge — so higher multiples lower your overall edge, but tie up more bankroll per bet. Use the highest multiple your bankroll and casino allow." />
+              <InfoTip text="How many times your current wager you back the Pass Line with once a point is set. Odds pay true odds — 0% house edge — so higher multiples lower your overall edge, but tie up more bankroll per bet. Use the highest multiple your bankroll and casino allow." />
             </span>
             <select value={oddsMultiple} onChange={(e) => setOddsMultiple(Number(e.target.value))}>
               {ODDS_OPTIONS.map((m) => (
@@ -201,68 +284,175 @@ export default function SimulatorTab() {
           </label>
           <label>
             <span className="field-label-row">
-              Rolls per trial
+              Rolls per session
               <InfoTip text="How many dice rolls to simulate in a single session before stopping — think of it as 'how long you play.' Roughly 100–300 rolls is a typical hour at a live craps table." />
             </span>
             <input type="number" min={10} step={10} value={maxRolls} onChange={(e) => setMaxRolls(Number(e.target.value))} />
           </label>
           <label>
             <span className="field-label-row">
-              Number of trials
-              <InfoTip text="How many independent sessions to simulate and average together. More trials give a smoother, more reliable picture of the range of outcomes, at the cost of more compute time. 500–2000 is usually enough to see clear patterns." />
+              <input type="checkbox" checked={useStopLoss} onChange={(e) => setUseStopLoss(e.target.checked)} /> Stop-loss ($)
             </span>
-            <input
-              type="number"
-              min={50}
-              step={50}
-              max={5000}
-              value={trials}
-              onChange={(e) => setTrials(Math.min(5000, Number(e.target.value)))}
-            />
+            <input type="number" min={0} step={10} value={stopLoss} disabled={!useStopLoss} onChange={(e) => setStopLoss(Number(e.target.value))} />
+          </label>
+          <label>
+            <span className="field-label-row">
+              <input type="checkbox" checked={useStopWin} onChange={(e) => setUseStopWin(e.target.checked)} /> Stop-win ($)
+            </span>
+            <input type="number" min={0} step={10} value={stopWin} disabled={!useStopWin} onChange={(e) => setStopWin(Number(e.target.value))} />
           </label>
         </div>
+
+        <div className="control-group">
+          <span>Monte Carlo sessions</span>
+          <div className="button-row">
+            <button className={mcRuns === 0 ? 'active' : ''} onClick={() => setMcRuns(0)}>
+              Single run only
+            </button>
+            {MC_RUN_OPTIONS.map((n) => (
+              <button key={n} className={mcRuns === n ? 'active' : ''} onClick={() => setMcRuns(n)}>
+                {n.toLocaleString()} sessions
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="sim-meta">
           <span>
             Theoretical blended house edge (Pass Line + Odds portion): <strong>{edge.toFixed(2)}%</strong>
           </span>
           <button className="run-button" onClick={handleRun} disabled={running}>
-            {running ? 'Running…' : `Run ${trials.toLocaleString()} trials`}
+            {running ? (mcRuns > 0 ? `Running… ${mcProgress}%` : 'Running…') : 'Run simulation'}
           </button>
         </div>
       </section>
 
-      {result && ranStrategyDef && (
+      {detailedResult && ranConfig && ranStrategyDef && ranStakingDef && (
         <>
           <section className="panel strategy-ran-banner">
-            <span className="strategy-ran-label">Strategy simulated:</span>
+            <span className="strategy-ran-label">Simulated:</span>
             <strong>{ranStrategyDef.label}</strong>
             <span className="strategy-ran-detail">
-              · {ranOddsMultiple === 0 ? 'no odds' : `${ranOddsMultiple}x odds`} · ${betSize} base bet
+              · {ranStakingDef.label} staking · {ranConfig.oddsMultiple === 0 ? 'no odds' : `${ranConfig.oddsMultiple}x odds`} · $
+              {ranConfig.baseUnit} base unit · stopped: {STOP_REASON_LABEL[detailedResult.stopReason]}
             </span>
           </section>
 
           <section className="panel stats-panel">
             <div className="stat">
-              <span className="stat-label">Win rate</span>
-              <span className="stat-value">{result.winRate.toFixed(1)}%</span>
-              <span className="stat-sub">trials ending above starting bankroll</span>
+              <span className="stat-label">Ending bankroll (this run)</span>
+              <span className="stat-value">${detailedResult.finalBankroll.toFixed(0)}</span>
+              <span className="stat-sub">started at ${ranConfig.startingBankroll}</span>
             </div>
             <div className="stat">
-              <span className="stat-label">Risk of ruin</span>
-              <span className="stat-value">{result.riskOfRuin.toFixed(1)}%</span>
-              <span className="stat-sub">trials that busted the bankroll</span>
+              <span className="stat-label">Net result</span>
+              <span className="stat-value">${(detailedResult.finalBankroll - ranConfig.startingBankroll).toFixed(0)}</span>
             </div>
             <div className="stat">
-              <span className="stat-label">Average final bankroll</span>
-              <span className="stat-value">${result.averageFinal.toFixed(0)}</span>
-              <span className="stat-sub">started at ${startingBankroll}</span>
+              <span className="stat-label">Rolls completed</span>
+              <span className="stat-value">{detailedResult.rollsCompleted}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Total wagered</span>
+              <span className="stat-value">${detailedResult.totalWagered.toFixed(0)}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Largest wager</span>
+              <span className="stat-value">${detailedResult.largestWager.toFixed(0)}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Max drawdown</span>
+              <span className="stat-value">${detailedResult.maxDrawdown.toFixed(0)}</span>
             </div>
           </section>
 
           <section className="panel">
-            <h3>Bankroll over time</h3>
+            <h3>Bankroll over time (this run)</h3>
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={singleChartData}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                <XAxis dataKey="roll" tick={{ fontSize: 11 }} label={{ value: 'Roll #', position: 'insideBottom', offset: -4, fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(v) => [`$${v}`, 'Bankroll']} labelFormatter={(l) => `Roll ${l}`} />
+                <Area type="monotone" dataKey="bankroll" stroke="#f4d35e" fill="#f4d35e22" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </section>
+
+          {detailedResult.rollHistory.length > 0 && (
+            <section className="panel">
+              <h3>Roll history</h3>
+              <div className="bet-table-wrapper spin-history-table">
+                <table className="bet-table">
+                  <thead>
+                    <tr>
+                      <th>Roll</th>
+                      <th>Dice</th>
+                      <th>Event</th>
+                      <th>Wager</th>
+                      <th>Odds</th>
+                      <th>Profit</th>
+                      <th>Bankroll</th>
+                      <th>Staking state</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detailedResult.rollHistory.map((r) => (
+                      <tr key={r.rollNumber}>
+                        <td>{r.rollNumber}</td>
+                        <td>{r.die1}+{r.die2} = {r.total}</td>
+                        <td style={{ color: OUTCOME_COLOR[ROLL_STAGE_OUTCOME[r.stage]] }}>{ROLL_STAGE_LABEL[r.stage]}</td>
+                        <td>${r.wager.toFixed(0)}</td>
+                        <td>${r.oddsBet.toFixed(0)}</td>
+                        <td>{r.profit >= 0 ? '+' : ''}{r.profit.toFixed(0)}</td>
+                        <td>${r.bankrollAfter.toFixed(0)}</td>
+                        <td>{r.stakingStateLabel}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      {mcSummary && (
+        <>
+          <section className="panel stats-panel">
+            <div className="stat">
+              <span className="stat-label">Win rate</span>
+              <span className="stat-value">{mcSummary.winRate.toFixed(1)}%</span>
+              <span className="stat-sub">sessions ending above starting bankroll</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Risk of ruin</span>
+              <span className="stat-value">{mcSummary.riskOfRuin.toFixed(1)}%</span>
+              <span className="stat-sub">sessions that busted the bankroll</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Average final bankroll</span>
+              <span className="stat-value">${mcSummary.averageFinal.toFixed(0)}</span>
+              <span className="stat-sub">started at ${startingBankroll}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Avg max drawdown</span>
+              <span className="stat-value">${mcSummary.avgMaxDrawdown.toFixed(0)}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Avg largest wager</span>
+              <span className="stat-value">${mcSummary.avgLargestWager.toFixed(0)}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Avg total wagered</span>
+              <span className="stat-value">${mcSummary.avgTotalWagered.toFixed(0)}</span>
+            </div>
+          </section>
+
+          <section className="panel">
+            <h3>Bankroll over time ({mcRuns.toLocaleString()} sessions)</h3>
             <p className="chart-note">
-              Shaded band is the 25th–75th percentile (the typical range — half of all trials land inside it) with
+              Shaded band is the 25th–75th percentile (the typical range — half of all sessions land inside it) with
               the median in gold. Dashed lines mark the 5th/95th percentile tails for reference.
             </p>
             <ResponsiveContainer width="100%" height={320}>
@@ -290,23 +480,23 @@ export default function SimulatorTab() {
             </p>
             <div className="kpi-row-mini">
               <span className="kpi-mini kpi-mini-positive">
-                {result.positiveCount.toLocaleString()} positive ({result.positivePct.toFixed(1)}%)
+                {mcSummary.positiveCount.toLocaleString()} positive ({mcSummary.positivePct.toFixed(1)}%)
               </span>
               <span className="kpi-mini kpi-mini-neutral">
-                {result.neutralCount.toLocaleString()} neutral ({result.neutralPct.toFixed(1)}%)
+                {mcSummary.neutralCount.toLocaleString()} neutral ({mcSummary.neutralPct.toFixed(1)}%)
               </span>
               <span className="kpi-mini kpi-mini-negative">
-                {result.negativeCount.toLocaleString()} negative ({result.negativePct.toFixed(1)}%)
+                {mcSummary.negativeCount.toLocaleString()} negative ({mcSummary.negativePct.toFixed(1)}%)
               </span>
             </div>
             <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={result.histogram}>
+              <BarChart data={mcSummary.histogram}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                 <XAxis dataKey="bucket" tick={{ fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={60} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => [v, 'Trials']} />
-                <Bar dataKey="count" name="Trials" radius={[4, 4, 0, 0]}>
-                  {result.histogram.map((entry, i) => (
+                <Tooltip formatter={(v) => [v, 'Sessions']} />
+                <Bar dataKey="count" name="Sessions" radius={[4, 4, 0, 0]}>
+                  {mcSummary.histogram.map((entry, i) => (
                     <Cell key={i} fill={entry.winning ? '#3d9970' : '#c0392b'} />
                   ))}
                 </Bar>
@@ -317,7 +507,7 @@ export default function SimulatorTab() {
           <section className="panel">
             <h3>Dice roll distribution</h3>
             <p className="chart-note">
-              Every roll across all trials, broken down by whether it moved the bankroll up, down, or left it
+              Every roll across all sessions, broken down by whether it moved the bankroll up, down, or left it
               unchanged at that point in the game. Hover a bar for the breakdown by game stage.
               <br />
               <span className="legend-swatch legend-swatch-win" /> winning roll&nbsp;&nbsp;
@@ -325,7 +515,7 @@ export default function SimulatorTab() {
               <span className="legend-swatch legend-swatch-neutral" /> no change
             </p>
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={result.rollDistribution}>
+              <BarChart data={mcSummary.rollDistribution}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                 <XAxis
                   dataKey="total"
@@ -343,6 +533,35 @@ export default function SimulatorTab() {
           </section>
         </>
       )}
+
+      <section className="panel responsible-gambling-panel">
+        <h3>Play responsibly</h3>
+        <ul>
+          {RESPONSIBLE_GAMBLING_NOTICE.map((point) => (
+            <li key={point}>{point}</li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }
+
+const ROLL_STAGE_LABEL: Record<string, string> = {
+  naturalWin: 'Natural win',
+  crapsLoss: 'Craps loss',
+  pointEstablished: 'Point established',
+  pointMade: 'Point made',
+  sevenOut: 'Seven-out',
+  placeWin: 'Place win',
+  noAction: 'No action',
+};
+
+const ROLL_STAGE_OUTCOME: Record<string, 'win' | 'lose' | 'neutral'> = {
+  naturalWin: 'win',
+  crapsLoss: 'lose',
+  pointEstablished: 'neutral',
+  pointMade: 'win',
+  sevenOut: 'lose',
+  placeWin: 'win',
+  noAction: 'neutral',
+};

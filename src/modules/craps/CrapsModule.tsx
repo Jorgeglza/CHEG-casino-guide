@@ -1,16 +1,18 @@
 import { useHashRoute } from '../../useHashRoute';
 import OverviewTab from './tabs/OverviewTab';
 import StrategyTab from './tabs/StrategyTab';
+import GuideTab from './tabs/GuideTab';
 import SimulatorTab from './tabs/SimulatorTab';
 import RulesTab from './tabs/RulesTab';
 import BetReferenceTab from './tabs/BetReferenceTab';
 
-const TAB_IDS = ['overview', 'strategy', 'simulator', 'rules', 'reference'] as const;
+const TAB_IDS = ['overview', 'strategy', 'guide', 'simulator', 'rules', 'reference'] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 const TAB_LABELS: Record<TabId, string> = {
   overview: 'Overview',
   strategy: 'Strategy',
+  guide: 'Strategy Guide',
   simulator: 'Monte Carlo Simulator',
   rules: 'Rules & How to Play',
   reference: 'Bet Reference',
@@ -35,6 +37,7 @@ export default function CrapsModule() {
       </nav>
       {activeTab === 'overview' && <OverviewTab onNavigate={(id) => navigate('craps', id)} />}
       {activeTab === 'strategy' && <StrategyTab />}
+      {activeTab === 'guide' && <GuideTab />}
       {activeTab === 'simulator' && <SimulatorTab />}
       {activeTab === 'rules' && <RulesTab />}
       {activeTab === 'reference' && <BetReferenceTab />}

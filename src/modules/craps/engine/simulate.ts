@@ -1,19 +1,19 @@
 import { rollDice } from './dice';
 import { oddsWinAmount, placeWinAmount, getStrategy, type Point, type StrategyId } from './bets';
+import { getStakingStrategy, stakingStateLabel, type CrapsStakingStrategy, type StakingState } from './strategyEngine';
 
 export interface SimConfig {
   startingBankroll: number;
-  betSize: number;
+  baseUnit: number; // base wager size the staking strategy scales up/down from
   oddsMultiple: number;
+  tableMax: number;
   maxRolls: number;
-  trials: number;
-  strategy: StrategyId;
-}
-
-export interface TrialResult {
-  trajectory: number[]; // bankroll after each roll (or held flat once ruined)
-  finalBankroll: number;
-  ruined: boolean;
+  trials: number; // used by the legacy synchronous runMonteCarlo() batch size
+  strategy: StrategyId; // which bets are working (bet-selection axis, see ./bets.ts)
+  stakingStrategy: CrapsStakingStrategy; // how the Pass Line wager is sized round to round
+  paroliCap: number;
+  stopLoss?: number;
+  stopWin?: number;
 }
 
 export type RollOutcome = 'win' | 'lose' | 'neutral';
@@ -39,71 +39,205 @@ export const ROLL_STAGES: Record<RollStageKey, { label: string; outcome: RollOut
 
 export type RollTally = Record<number, Record<RollStageKey, number>>;
 
-function simulateTrial(config: SimConfig, rollTally: RollTally): TrialResult {
-  const { startingBankroll, betSize, oddsMultiple, maxRolls } = config;
-  const strategy = getStrategy(config.strategy);
+export type StopReason = 'max-rolls' | 'stop-loss' | 'stop-win' | 'ruin' | 'table-max-exceeded';
+
+export interface RollRecord {
+  rollNumber: number;
+  die1: number;
+  die2: number;
+  total: number;
+  point: Point | null;
+  stage: RollStageKey;
+  wager: number;
+  oddsBet: number;
+  profit: number;
+  bankrollAfter: number;
+  stakingStateLabel: string;
+}
+
+export interface TrialResult {
+  trajectory: number[]; // bankroll after each roll (or held flat once stopped)
+  rollHistory: RollRecord[];
+  finalBankroll: number;
+  ruined: boolean;
+  stopReason: StopReason;
+  maxDrawdown: number;
+  largestWager: number;
+  totalWagered: number;
+  rollsCompleted: number;
+}
+
+function newRollTally(): RollTally {
+  const tally: RollTally = {};
+  for (let total = 2; total <= 12; total++) {
+    tally[total] = { naturalWin: 0, crapsLoss: 0, pointEstablished: 0, pointMade: 0, sevenOut: 0, placeWin: 0, noAction: 0 };
+  }
+  return tally;
+}
+
+function simulateTrial(config: SimConfig, rollTally: RollTally | null, trackHistory: boolean): TrialResult {
+  const { startingBankroll, oddsMultiple, maxRolls, tableMax } = config;
+  const betStrategy = getStrategy(config.strategy);
+  const staking = getStakingStrategy(config.stakingStrategy);
+  let stakingState: StakingState = staking.initState(config.baseUnit);
+
   let bankroll = startingBankroll;
+  let peak = bankroll;
+  let maxDrawdown = 0;
+  let largestWager = 0;
+  let totalWagered = 0;
   let point: Point | null = null;
+  let currentWager = stakingState.currentWager; // wager for the next/current come-out decision
+  let activeWager = 0; // pass line wager locked in while a point is active
   let oddsBet = 0;
   let activePlaceNumbers: Point[] = [];
-  const trajectory: number[] = [];
+  const trajectory: number[] = [bankroll];
+  const rollHistory: RollRecord[] = [];
   let ruined = false;
+  let stopReason: StopReason = 'max-rolls';
+  let rollsCompleted = 0;
 
   for (let i = 0; i < maxRolls; i++) {
-    if (point === null && bankroll < betSize) {
-      ruined = true;
-      trajectory.push(bankroll);
-      continue;
+    if (point === null) {
+      if (currentWager > tableMax) {
+        stopReason = 'table-max-exceeded';
+        break;
+      }
+      if (currentWager > bankroll) {
+        stopReason = 'ruin';
+        ruined = true;
+        break;
+      }
     }
 
+    const bankrollBefore = bankroll;
     const roll = rollDice();
     const total = roll.total;
     let stage: RollStageKey;
+    let recordWager = 0;
+    let recordOdds = 0;
+    let resolutionOutcome: 'win' | 'loss' | null = null;
+    let stakingStop = false;
 
     if (point === null) {
+      const wager = currentWager;
+      recordWager = wager;
+      totalWagered += wager;
+      largestWager = Math.max(largestWager, wager);
+
       if (total === 7 || total === 11) {
-        bankroll += betSize;
+        bankroll += wager;
         stage = 'naturalWin';
+        resolutionOutcome = 'win';
       } else if (total === 2 || total === 3 || total === 12) {
-        bankroll -= betSize;
+        bankroll -= wager;
         stage = 'crapsLoss';
+        resolutionOutcome = 'loss';
       } else {
         point = total as Point;
-        const desiredOdds = betSize * oddsMultiple;
-        oddsBet = Math.min(desiredOdds, Math.max(bankroll, 0));
-        activePlaceNumbers = strategy.placeNumbers.filter((n) => n !== point && bankroll >= betSize);
+        activeWager = wager;
+        const desiredOdds = wager * oddsMultiple;
+        oddsBet = Math.min(desiredOdds, Math.max(bankroll - wager, 0));
+        activePlaceNumbers = betStrategy.placeNumbers.filter((n) => n !== point && bankroll - wager - oddsBet >= wager);
+        totalWagered += oddsBet + activePlaceNumbers.length * wager;
+        largestWager = Math.max(largestWager, wager + oddsBet + activePlaceNumbers.length * wager);
         stage = 'pointEstablished';
       }
     } else {
+      const wager = activeWager;
+      recordWager = wager;
+      recordOdds = oddsBet;
+
       if (total === point) {
-        bankroll += betSize + oddsWinAmount(point, oddsBet);
-        point = null;
-        oddsBet = 0;
-        activePlaceNumbers = [];
+        bankroll += wager + oddsWinAmount(point, oddsBet);
         stage = 'pointMade';
-      } else if (total === 7) {
-        bankroll -= betSize + oddsBet + activePlaceNumbers.length * betSize;
+        resolutionOutcome = 'win';
         point = null;
         oddsBet = 0;
         activePlaceNumbers = [];
+      } else if (total === 7) {
+        bankroll -= wager + oddsBet + activePlaceNumbers.length * wager;
         stage = 'sevenOut';
+        resolutionOutcome = 'loss';
+        point = null;
+        oddsBet = 0;
+        activePlaceNumbers = [];
       } else if (activePlaceNumbers.includes(total as Point)) {
-        bankroll += placeWinAmount(total as Point, betSize);
+        bankroll += placeWinAmount(total as Point, wager);
         stage = 'placeWin';
       } else {
         stage = 'noAction';
       }
     }
 
-    // a player can never lose more than they've wagered
+    if (resolutionOutcome) {
+      const res = staking.nextWager(stakingState, resolutionOutcome, config.baseUnit, tableMax, { paroliCap: config.paroliCap });
+      stakingState = res.nextState;
+      currentWager = res.wager;
+      stakingStop = res.stop === true;
+    }
+
     bankroll = Math.max(0, bankroll);
+    peak = Math.max(peak, bankroll);
+    maxDrawdown = Math.max(maxDrawdown, peak - bankroll);
+    rollsCompleted += 1;
 
-    rollTally[total][stage]++;
-
+    if (rollTally) rollTally[total][stage] += 1;
     trajectory.push(bankroll);
+
+    if (trackHistory) {
+      rollHistory.push({
+        rollNumber: i + 1,
+        die1: roll.die1,
+        die2: roll.die2,
+        total,
+        point,
+        stage,
+        wager: recordWager,
+        oddsBet: recordOdds,
+        profit: bankroll - bankrollBefore,
+        bankrollAfter: bankroll,
+        stakingStateLabel: stakingStateLabel(config.stakingStrategy, stakingState, config.baseUnit),
+      });
+    }
+
+    if (bankroll === 0) {
+      stopReason = 'ruin';
+      ruined = true;
+      break;
+    }
+    if (stakingStop && point === null) {
+      stopReason = 'table-max-exceeded';
+      break;
+    }
+    if (point === null && config.stopLoss !== undefined && bankroll <= config.stopLoss) {
+      stopReason = 'stop-loss';
+      break;
+    }
+    if (point === null && config.stopWin !== undefined && bankroll >= config.stopWin) {
+      stopReason = 'stop-win';
+      break;
+    }
+    if (i === maxRolls - 1) {
+      stopReason = 'max-rolls';
+    }
   }
 
-  return { trajectory, finalBankroll: trajectory[trajectory.length - 1] ?? startingBankroll, ruined };
+  return {
+    trajectory,
+    rollHistory,
+    finalBankroll: trajectory[trajectory.length - 1] ?? startingBankroll,
+    ruined,
+    stopReason,
+    maxDrawdown,
+    largestWager,
+    totalWagered,
+    rollsCompleted,
+  };
+}
+
+export function simulateSingleRun(config: SimConfig): TrialResult {
+  return simulateTrial(config, null, true);
 }
 
 export interface SimSummary {
@@ -120,6 +254,9 @@ export interface SimSummary {
   winRate: number; // % of trials ending above starting bankroll
   riskOfRuin: number; // % of trials that hit zero
   averageFinal: number;
+  avgMaxDrawdown: number;
+  avgLargestWager: number;
+  avgTotalWagered: number;
   theoreticalHouseEdge: number;
   positiveCount: number;
   neutralCount: number;
@@ -134,17 +271,7 @@ function percentile(sorted: number[], p: number): number {
   return sorted[idx];
 }
 
-export function runMonteCarlo(config: SimConfig): SimSummary {
-  const rollTally: RollTally = {};
-  for (let total = 2; total <= 12; total++) {
-    rollTally[total] = { naturalWin: 0, crapsLoss: 0, pointEstablished: 0, pointMade: 0, sevenOut: 0, placeWin: 0, noAction: 0 };
-  }
-
-  const trials: TrialResult[] = [];
-  for (let t = 0; t < config.trials; t++) {
-    trials.push(simulateTrial(config, rollTally));
-  }
-
+function summarize(config: SimConfig, trials: TrialResult[], rollTally: RollTally): SimSummary {
   const rollCount = config.maxRolls;
   const trajectoryPercentiles: SimSummary['trajectoryPercentiles'] = [];
   const sampleStride = Math.max(1, Math.floor(rollCount / 200)); // cap chart points for perf
@@ -165,6 +292,9 @@ export function runMonteCarlo(config: SimConfig): SimSummary {
   const wins = finalBankrolls.filter((b) => b > config.startingBankroll).length;
   const ruins = trials.filter((tr) => tr.ruined).length;
   const averageFinal = finalBankrolls.reduce((a, b) => a + b, 0) / finalBankrolls.length;
+  const avgMaxDrawdown = trials.reduce((a, t) => a + t.maxDrawdown, 0) / trials.length;
+  const avgLargestWager = trials.reduce((a, t) => a + t.largestWager, 0) / trials.length;
+  const avgTotalWagered = trials.reduce((a, t) => a + t.totalWagered, 0) / trials.length;
 
   const positiveCount = finalBankrolls.filter((b) => b > config.startingBankroll).length;
   const negativeCount = finalBankrolls.filter((b) => b < config.startingBankroll).length;
@@ -211,7 +341,11 @@ export function runMonteCarlo(config: SimConfig): SimSummary {
     winRate: (wins / trials.length) * 100,
     riskOfRuin: (ruins / trials.length) * 100,
     averageFinal,
-    theoreticalHouseEdge: config.betSize > 0 ? (1.41 * config.betSize) / (config.betSize + config.betSize * config.oddsMultiple || 1) : 1.41,
+    avgMaxDrawdown,
+    avgLargestWager,
+    avgTotalWagered,
+    theoreticalHouseEdge:
+      config.baseUnit > 0 ? (1.41 * config.baseUnit) / (config.baseUnit + config.baseUnit * config.oddsMultiple || 1) : 1.41,
     positiveCount,
     neutralCount,
     negativeCount,
@@ -219,4 +353,45 @@ export function runMonteCarlo(config: SimConfig): SimSummary {
     neutralPct: (neutralCount / trials.length) * 100,
     negativePct: (negativeCount / trials.length) * 100,
   };
+}
+
+// Synchronous Monte Carlo — fine for smaller trial counts (e.g. the reference runs used
+// by the Strategy Guide tab, which cache their result once per page load).
+export function runMonteCarlo(config: SimConfig, runs: number = config.trials): SimSummary {
+  const rollTally = newRollTally();
+  const trials: TrialResult[] = [];
+  for (let t = 0; t < runs; t++) {
+    trials.push(simulateTrial(config, rollTally, false));
+  }
+  return summarize(config, trials, rollTally);
+}
+
+// Chunked Monte Carlo runner so large run counts don't freeze the tab — yields to the
+// event loop between batches via setTimeout(...,0), same approach as Blackjack/Roulette.
+export function runInBatches(
+  config: SimConfig,
+  totalRuns: number,
+  onProgress: (pct: number) => void,
+  onDone: (summary: SimSummary) => void,
+): void {
+  const batchSize = 300;
+  const rollTally = newRollTally();
+  const trials: TrialResult[] = [];
+
+  function step() {
+    const remaining = totalRuns - trials.length;
+    const thisBatch = Math.min(batchSize, remaining);
+    for (let i = 0; i < thisBatch; i++) {
+      trials.push(simulateTrial(config, rollTally, false));
+    }
+    onProgress(Math.round((trials.length / totalRuns) * 100));
+
+    if (trials.length < totalRuns) {
+      setTimeout(step, 0);
+    } else {
+      onDone(summarize(config, trials, rollTally));
+    }
+  }
+
+  step();
 }
