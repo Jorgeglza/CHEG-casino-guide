@@ -282,57 +282,74 @@ export default function SimulatorTab() {
                 </AreaChart>
               </ResponsiveContainer>
             </section>
+
+            {detailedResult.handHistory.length > 0 && (
+              <section className="panel">
+                <h3>Hand history</h3>
+                <div className="bet-table-wrapper spin-history-table">
+                  <table className="bet-table">
+                    <thead>
+                      <tr>
+                        <th>Hand</th>
+                        <th>Wager</th>
+                        <th>Outcome</th>
+                        <th>Profit</th>
+                        <th>Bankroll</th>
+                        <th>Betting state</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detailedResult.handHistory.map((h) => (
+                        <tr key={h.handNumber}>
+                          <td>{h.handNumber}</td>
+                          <td>${h.wager.toFixed(2)}</td>
+                          <td className={`outcome-cell outcome-cell--${h.outcome}`}>{h.outcome}</td>
+                          <td>{h.profit >= 0 ? '+' : ''}{h.profit.toFixed(2)}</td>
+                          <td>${h.bankrollAfter.toFixed(2)}</td>
+                          <td>{h.bettingStateLabel}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
           </>
         )}
 
         {mcSummary && (
           <>
-            <section className="panel">
-              <h3>Bankroll distribution ({mcRuns.toLocaleString()} sessions)</h3>
-              <div className="kpi-row-mini">
-                <span className="kpi-mini kpi-mini-positive">{mcSummary.profitablePct.toFixed(1)}% profitable</span>
-                <span className="kpi-mini kpi-mini-negative">{mcSummary.ruinPct.toFixed(1)}% ended in ruin</span>
+            <section className="panel stats-panel">
+              <div className="stat">
+                <span className="stat-label">Average ending bankroll</span>
+                <span className="stat-value">${mcSummary.averageFinal.toFixed(0)}</span>
               </div>
-              <div className="stats-panel">
-                <div className="stat">
-                  <span className="stat-label">Average ending bankroll</span>
-                  <span className="stat-value">${mcSummary.averageFinal.toFixed(0)}</span>
-                </div>
-                <div className="stat">
-                  <span className="stat-label">Median ending bankroll</span>
-                  <span className="stat-value">${mcSummary.medianFinal.toFixed(0)}</span>
-                </div>
-                <div className="stat">
-                  <span className="stat-label">Avg hand win rate</span>
-                  <span className="stat-value">{mcSummary.avgHandWinRate.toFixed(1)}%</span>
-                  <span className="stat-sub">{mcSummary.avgHandPushRate.toFixed(1)}% pushed</span>
-                </div>
-                <div className="stat">
-                  <span className="stat-label">Avg max drawdown</span>
-                  <span className="stat-value">${mcSummary.avgMaxDrawdown.toFixed(0)}</span>
-                </div>
-                <div className="stat">
-                  <span className="stat-label">Avg largest wager</span>
-                  <span className="stat-value">${mcSummary.avgLargestWager.toFixed(0)}</span>
-                </div>
-                <div className="stat">
-                  <span className="stat-label">Avg blackjacks / session</span>
-                  <span className="stat-value">{mcSummary.avgBlackjacksPerTrial.toFixed(1)}</span>
-                </div>
+              <div className="stat">
+                <span className="stat-label">Median ending bankroll</span>
+                <span className="stat-value">${mcSummary.medianFinal.toFixed(0)}</span>
               </div>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={mcSummary.histogram}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-                  <XAxis dataKey="bucket" tick={{ fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={60} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v) => [v, 'Sessions']} />
-                  <Bar dataKey="count" name="Sessions" radius={[4, 4, 0, 0]}>
-                    {mcSummary.histogram.map((entry, i) => (
-                      <Cell key={i} fill={entry.winning ? '#3d9970' : '#c0392b'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="stat">
+                <span className="stat-label">Profitable / ruined</span>
+                <span className="stat-value">{mcSummary.profitablePct.toFixed(1)}% / {mcSummary.ruinPct.toFixed(1)}%</span>
+                <span className="stat-sub">share of sessions profitable vs. fully busted</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">Avg hand win rate</span>
+                <span className="stat-value">{mcSummary.avgHandWinRate.toFixed(1)}%</span>
+                <span className="stat-sub">{mcSummary.avgHandPushRate.toFixed(1)}% pushed</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">Avg max drawdown</span>
+                <span className="stat-value">${mcSummary.avgMaxDrawdown.toFixed(0)}</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">Avg largest wager</span>
+                <span className="stat-value">${mcSummary.avgLargestWager.toFixed(0)}</span>
+              </div>
+              <div className="stat">
+                <span className="stat-label">Avg blackjacks / session</span>
+                <span className="stat-value">{mcSummary.avgBlackjacksPerTrial.toFixed(1)}</span>
+              </div>
             </section>
 
             <section className="panel">
@@ -352,39 +369,28 @@ export default function SimulatorTab() {
                 </AreaChart>
               </ResponsiveContainer>
             </section>
-          </>
-        )}
 
-        {detailedResult && detailedResult.handHistory.length > 0 && (
-          <section className="panel">
-            <h3>Hand history</h3>
-            <div className="bet-table-wrapper spin-history-table">
-              <table className="bet-table">
-                <thead>
-                  <tr>
-                    <th>Hand</th>
-                    <th>Wager</th>
-                    <th>Outcome</th>
-                    <th>Profit</th>
-                    <th>Bankroll</th>
-                    <th>Betting state</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detailedResult.handHistory.map((h) => (
-                    <tr key={h.handNumber}>
-                      <td>{h.handNumber}</td>
-                      <td>${h.wager.toFixed(2)}</td>
-                      <td className={`outcome-cell outcome-cell--${h.outcome}`}>{h.outcome}</td>
-                      <td>{h.profit >= 0 ? '+' : ''}{h.profit.toFixed(2)}</td>
-                      <td>${h.bankrollAfter.toFixed(2)}</td>
-                      <td>{h.bettingStateLabel}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+            <section className="panel">
+              <h3>Bankroll distribution ({mcRuns.toLocaleString()} sessions)</h3>
+              <div className="kpi-row-mini">
+                <span className="kpi-mini kpi-mini-positive">{mcSummary.profitablePct.toFixed(1)}% profitable</span>
+                <span className="kpi-mini kpi-mini-negative">{mcSummary.ruinPct.toFixed(1)}% ended in ruin</span>
+              </div>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={mcSummary.histogram}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                  <XAxis dataKey="bucket" tick={{ fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={60} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v) => [v, 'Sessions']} />
+                  <Bar dataKey="count" name="Sessions" radius={[4, 4, 0, 0]}>
+                    {mcSummary.histogram.map((entry, i) => (
+                      <Cell key={i} fill={entry.winning ? '#3d9970' : '#c0392b'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </section>
+          </>
         )}
       </div>
 

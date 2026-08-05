@@ -66,13 +66,23 @@ export const HI_LO_EXPLANATION = {
 };
 
 export interface BettingSystemCard {
-  id: 'martingale' | 'paroli' | '1-3-2-6';
+  id: 'flat' | 'martingale' | 'paroli' | '1-3-2-6';
   label: string;
   summary: string;
   howItWorks: string[];
 }
 
 export const BETTING_SYSTEMS: BettingSystemCard[] = [
+  {
+    id: 'flat',
+    label: 'Flat Betting',
+    summary: 'Wager the same unit on every hand, regardless of the previous outcome.',
+    howItWorks: [
+      'Pick one betting unit and wager it on every hand.',
+      'The wager never changes, win or lose.',
+      'Simplest system to track, and the one this guide recommends over any progression below — it does not escalate wagers during a losing streak.',
+    ],
+  },
   {
     id: 'martingale',
     label: 'Martingale',
